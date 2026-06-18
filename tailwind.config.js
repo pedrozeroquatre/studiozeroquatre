@@ -1,15 +1,27 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,jsx}",
+    "./components/**/*.{js,jsx}",
   ],
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        bg: "var(--bg)",
+        surface: "var(--surface)",
+        "border-line": "var(--border)",
+        "border-line2": "var(--border2)",
+        text: "var(--text)",
+        text2: "var(--text2)",
+        text3: "var(--text3)",
+      },
+      fontFamily: {
+        syne: ["var(--font-syne)", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
+      },
+      borderRadius: {
+        DEFAULT: "3px",
+        none: "0",
       },
     },
   },
