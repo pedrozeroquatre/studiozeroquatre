@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useScrollBorder } from '@/hooks/useScrollBorder'
 import HamburgerMenu from './HamburgerMenu'
 import { applyLang } from '@/lib/lang'
@@ -25,20 +26,24 @@ export default function Nav() {
           scrolled && 'border-b border-[var(--border)]'
         )}
       >
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           {/* Logo */}
-          <Link
-            href="/"
-            className="font-syne font-semibold text-sm tracking-tight text-text hover:opacity-70 transition-opacity"
-          >
-            Studio Zeroquatre
+          <Link href="/" className="hover:opacity-70 transition-opacity">
+            <Image
+              src="/images/logo.jpg"
+              alt="Studio Zeroquatre"
+              width={600}
+              height={120}
+              className="h-20 w-auto object-contain"
+              priority
+            />
           </Link>
 
           {/* Desktop links */}
           <div className="hidden md:flex items-center">
             <Link
               href="/produits"
-              className="font-mono text-xs border border-[var(--border2)] px-4 py-2 rounded text-text2 hover:text-text hover:bg-surface transition-colors"
+              className="font-mono text-xs px-4 py-2 text-text2 hover:text-text transition-colors relative after:absolute after:bottom-0 after:left-4 after:right-4 after:h-px after:bg-text after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-left"
               data-fr="Produits"
               data-en="Products"
             >
@@ -48,6 +53,15 @@ export default function Nav() {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/portal"
+              className="hidden md:block font-mono text-xs px-3 py-2 text-text2 hover:text-text transition-colors relative after:absolute after:bottom-0 after:left-3 after:right-3 after:h-px after:bg-text after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-left"
+              data-fr="Espace clients"
+              data-en="Client portal"
+            >
+              Espace clients
+            </Link>
+
             <button
               onClick={toggleLang}
               className="font-mono text-xs text-text3 hover:text-text2 transition-colors hidden md:block"
@@ -55,15 +69,6 @@ export default function Nav() {
             >
               {lang === 'fr' ? 'EN' : 'FR'}
             </button>
-
-            <Link
-              href="/portal"
-              className="hidden md:block font-mono text-xs border border-[var(--border2)] px-3 py-2 hover:bg-surface transition-colors rounded"
-              data-fr="Espace clients"
-              data-en="Client portal"
-            >
-              Espace clients
-            </Link>
 
             {/* Hamburger — mobile only */}
             <button
