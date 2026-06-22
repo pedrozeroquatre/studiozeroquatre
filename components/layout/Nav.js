@@ -40,16 +40,7 @@ export default function Nav() {
           </Link>
 
           {/* Desktop links */}
-          <div className="hidden md:flex items-center">
-            <Link
-              href="/produits"
-              className="font-mono text-xs px-4 py-2 text-text2 hover:text-text transition-colors relative after:absolute after:bottom-0 after:left-4 after:right-4 after:h-px after:bg-text after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-left"
-              data-fr="Produits"
-              data-en="Products"
-            >
-              Produits
-            </Link>
-          </div>
+          <div className="hidden md:flex items-center" />
 
           {/* Right side */}
           <div className="flex items-center gap-3">

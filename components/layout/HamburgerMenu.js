@@ -49,15 +49,6 @@ export default function HamburgerMenu({ open, onClose }) {
 
         <div className="flex flex-col gap-5 mt-4">
           <Link
-            href="/produits"
-            onClick={onClose}
-            className="font-mono text-sm text-text hover:text-text2 transition-colors"
-            data-fr="Produits"
-            data-en="Products"
-          >
-            Produits
-          </Link>
-          <Link
             href="/contact"
             onClick={onClose}
             className="font-mono text-sm text-text hover:text-text2 transition-colors"

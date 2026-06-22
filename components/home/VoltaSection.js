@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import FitTitle from './FitTitle'
@@ -28,9 +28,22 @@ const slides = [
 
 export default function VoltaSection() {
   const [current, setCurrent] = useState(0)
+  const timerRef = useRef(null)
 
-  const prev = () => setCurrent(i => (i - 1 + slides.length) % slides.length)
-  const next = () => setCurrent(i => (i + 1) % slides.length)
+  const resetTimer = () => {
+    clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      setCurrent(i => (i + 1) % slides.length)
+    }, 4000)
+  }
+
+  useEffect(() => {
+    resetTimer()
+    return () => clearInterval(timerRef.current)
+  }, [])
+
+  const prev = () => { setCurrent(i => (i - 1 + slides.length) % slides.length); resetTimer() }
+  const next = () => { setCurrent(i => (i + 1) % slides.length); resetTimer() }
 
   return (
     <section id="realisations" className="pt-16 pb-24 px-6 bg-bg">
@@ -79,7 +92,7 @@ export default function VoltaSection() {
             {slides.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setCurrent(i)}
+                onClick={() => { setCurrent(i); resetTimer() }}
                 aria-label={`Slide ${i + 1}`}
                 className={`h-2 rounded-full transition-all duration-300 ${
                   i === current
