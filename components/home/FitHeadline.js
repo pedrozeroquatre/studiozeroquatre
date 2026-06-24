@@ -1,16 +1,24 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, useEffect } from 'react'
 
 const LONGEST_WORD = 'Production.'
 const MIN_SIZE = 35.2 // px, 2.2rem
 const MAX_SIZE = 88 // px, 5.5rem
 const FALLBACK = 'clamp(2.2rem, 8.5cqw, 5.5rem)'
 
+const WORDS = [
+  { text: 'Design.', color: undefined, delay: 150 },
+  { text: 'Production.', color: undefined, delay: 350 },
+  { text: 'Storage.', color: undefined, delay: 550 },
+  { text: 'Delivery.', color: 'var(--text3)', delay: 750 },
+]
+
 export default function FitHeadline() {
   const h1Ref = useRef(null)
   const canvasRef = useRef(null)
   const [fontSize, setFontSize] = useState(null)
+  const [revealed, setRevealed] = useState([false, false, false, false])
 
   useLayoutEffect(() => {
     const h1 = h1Ref.current
@@ -44,16 +52,37 @@ export default function FitHeadline() {
     return () => ro.disconnect()
   }, [])
 
+  useEffect(() => {
+    const timers = WORDS.map(({ delay }, i) =>
+      setTimeout(() => setRevealed(prev => {
+        const next = [...prev]
+        next[i] = true
+        return next
+      }), delay)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
   return (
     <h1
       ref={h1Ref}
       className="font-syne font-black leading-[1.02] tracking-tight mb-8"
       style={{ fontSize: fontSize ? `${fontSize}px` : FALLBACK }}
     >
-      <span className="block whitespace-nowrap">Design.</span>
-      <span className="block whitespace-nowrap">Production.</span>
-      <span className="block whitespace-nowrap">Storage.</span>
-      <span className="block whitespace-nowrap" style={{ color: 'var(--text3)' }}>Delivery.</span>
+      {WORDS.map(({ text, color }, i) => (
+        <span
+          key={text}
+          className="block whitespace-nowrap"
+          style={{
+            color,
+            opacity: revealed[i] ? 1 : 0,
+            transform: revealed[i] ? 'translateY(0)' : 'translateY(0.25em)',
+            transition: 'opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+        >
+          {text}
+        </span>
+      ))}
     </h1>
   )
 }

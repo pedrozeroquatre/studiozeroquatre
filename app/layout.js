@@ -1,7 +1,5 @@
 import { Syne, DM_Mono } from 'next/font/google'
 import './globals.css'
-import Nav from '@/components/layout/Nav'
-import Footer from '@/components/layout/Footer'
 
 const syne = Syne({
   subsets: ['latin'],
@@ -25,11 +23,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="fr" className={`${syne.variable} ${dmMono.variable}`}>
-      <body>
-        <Nav />
-        <main>{children}</main>
-        <Footer />
-      </body>
+      <body>{children}</body>
     </html>
   )
 }

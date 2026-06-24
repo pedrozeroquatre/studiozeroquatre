@@ -8,13 +8,13 @@ export default function PortalPage() {
   const [client, setClient] = useState(null)
   const [error, setError] = useState('')
 
-  async function handleLogin(code) {
+  async function handleLogin(clientId, code) {
     setError('')
     try {
       const res = await fetch('/api/portal/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ clientId, code }),
       })
       const data = await res.json()
       if (res.ok) {
