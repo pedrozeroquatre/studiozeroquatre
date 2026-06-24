@@ -3,59 +3,30 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
-const RESTAURANT_OPTIONS = [
-  { value: 'late_night', label: 'Late Night' },
-  { value: 'pizza_shake', label: 'Pizza N Shake' },
-  { value: 'da_toto', label: 'Da Toto' },
-  { value: 'bottega', label: 'Bottega' },
-  { value: 'bros', label: 'Bros Pizza' },
-  { value: 'arte', label: 'Arte' },
-  { value: 'ballaro', label: 'Ballarò' },
-  { value: 'biga', label: 'Biga' },
-  { value: 'volta', label: 'Volta' },
-  { value: 'vera', label: 'Vera Pizza' },
-]
-
-const LN_BRANCHES = [
-  { id: 'ln_etterbeek', city: 'Etterbeek' },
-  { id: 'ln_schaerbeek', city: 'Schaerbeek' },
-  { id: 'ln_anderlecht', city: 'Anderlecht' },
-  { id: 'ln_saintjosse', city: 'Saint-Josse' },
-  { id: 'ln_vilvoorde', city: 'Vilvoorde' },
-  { id: 'ln_molenbeek', city: 'Molenbeek' },
-  { id: 'ln_ixelles', city: 'Ixelles' },
-]
-
-const inputStyle = {
-  width: '100%',
-  background: '#111',
-  border: '1px solid #2a2a2a',
-  borderRadius: 3,
-  color: '#f0f0f0',
-  fontFamily: 'inherit',
-  fontSize: 13,
-  padding: '10px 12px',
-  outline: 'none',
-  transition: 'border-color 0.15s',
-  boxSizing: 'border-box',
-}
-
 export default function LoginForm({ onLogin, error }) {
-  const [restaurant, setRestaurant] = useState('')
-  const [lnBranch, setLnBranch] = useState(null)
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const isLateNight = restaurant === 'late_night'
-  const clientId = isLateNight ? lnBranch : (restaurant || null)
-  const canSubmit = clientId && code.trim() && !loading
-
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!canSubmit) return
+    if (!code.trim() || loading) return
     setLoading(true)
-    await onLogin(clientId, code)
+    await onLogin(code)
     setLoading(false)
+  }
+
+  const inputStyle = {
+    width: '100%',
+    background: '#111',
+    border: '1px solid #2a2a2a',
+    borderRadius: 3,
+    color: '#f0f0f0',
+    fontFamily: 'inherit',
+    fontSize: 13,
+    padding: '10px 12px',
+    outline: 'none',
+    transition: 'border-color 0.15s',
+    boxSizing: 'border-box',
   }
 
   return (
@@ -84,58 +55,6 @@ export default function LoginForm({ onLogin, error }) {
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                Restaurant
-              </label>
-              <select
-                value={restaurant}
-                onChange={e => { setRestaurant(e.target.value); setLnBranch(null) }}
-                style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
-                onFocus={e => { e.target.style.borderColor = '#fff' }}
-                onBlur={e => { e.target.style.borderColor = '#2a2a2a' }}
-              >
-                <option value="">— Sélectionner —</option>
-                {RESTAURANT_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value} style={{ background: '#111' }}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {isLateNight && (
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-                  Choisir l&apos;adresse
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {LN_BRANCHES.map((b, i) => (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => setLnBranch(b.id)}
-                      style={{
-                        gridColumn: i === LN_BRANCHES.length - 1 ? '1 / -1' : undefined,
-                        background: lnBranch === b.id ? 'rgba(255,255,255,0.05)' : '#111',
-                        border: `1px solid ${lnBranch === b.id ? '#fff' : '#2a2a2a'}`,
-                        borderRadius: 3,
-                        color: lnBranch === b.id ? '#fff' : '#888',
-                        fontFamily: 'inherit',
-                        fontSize: 12,
-                        padding: '9px 10px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        lineHeight: 1.3,
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      Late Night
-                      <span style={{ fontSize: 11, display: 'block', opacity: 0.5, marginTop: 2 }}>{b.city}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
                 Code d&apos;accès
               </label>
               <input
@@ -158,8 +77,8 @@ export default function LoginForm({ onLogin, error }) {
 
             <button
               type="submit"
-              disabled={!canSubmit}
-              style={{ width: '100%', background: '#fff', color: '#000', border: 'none', borderRadius: 3, fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: 13, padding: 12, cursor: !canSubmit ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: 1, transition: 'all 0.15s', marginTop: 8, opacity: !canSubmit ? 0.3 : 1 }}
+              disabled={!code.trim() || loading}
+              style={{ width: '100%', background: '#fff', color: '#000', border: 'none', borderRadius: 3, fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: 13, padding: 12, cursor: !code.trim() || loading ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: 1, transition: 'all 0.15s', marginTop: 8, opacity: !code.trim() || loading ? 0.3 : 1 }}
             >
               {loading ? 'Connexion...' : 'Accéder'}
             </button>
