@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request) {
   const body = await request.json()
+  const { name, email, message } = body
 
-  // EMAIL HOOK [contact]:
-  // 1. npm install resend (or nodemailer)
-  // 2. Add env vars: RESEND_API_KEY, CONTACT_TO_EMAIL
-  // 3. Replace console.log with:
-  //    import { Resend } from 'resend'
-  //    const resend = new Resend(process.env.RESEND_API_KEY)
-  //    await resend.emails.send({
-  //      from: 'Studio Zeroquatre <contact@studiozeroquatre.be>',
-  //      to: process.env.CONTACT_TO_EMAIL,
-  //      replyTo: body.email,
-  //      subject: `Nouveau message de ${body.name}`,
-  //      text: body.message,
-  //    })
-  console.log('[contact] New message:', JSON.stringify(body, null, 2))
+  if (!name || !email || !message) {
+    return NextResponse.json({ success: false, error: 'Champs manquants' }, { status: 400 })
+  }
+
+  await resend.emails.send({
+    from: 'Studio Zeroquatre <contact@studiozeroquatre.com>',
+    to: 'contact@studiozeroquatre.com',
+    replyTo: email,
+    subject: `Nouveau message de ${name}`,
+    text: `Nom : ${name}\nEmail : ${email}\n\n${message}`,
+  })
 
   return NextResponse.json({ success: true })
 }

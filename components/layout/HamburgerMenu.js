@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 
-export default function HamburgerMenu({ open, onClose }) {
+export default function HamburgerMenu({ open, onClose, lang, onToggleLang }) {
   const drawerRef = useRef(null)
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function HamburgerMenu({ open, onClose }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end md:hidden">
+    <div className="fixed inset-0 z-[60] flex justify-end">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/40"
@@ -67,6 +67,14 @@ export default function HamburgerMenu({ open, onClose }) {
             Espace clients
           </Link>
         </div>
+
+        <button
+          onClick={onToggleLang}
+          className="mt-auto font-mono text-xs text-text3 hover:text-text2 transition-colors self-start"
+          aria-label="Changer de langue"
+        >
+          {lang === 'fr' ? 'EN' : 'FR'}
+        </button>
       </nav>
     </div>
   )

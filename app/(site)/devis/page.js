@@ -1,9 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import SuccessScreen from '@/components/devis/SuccessScreen'
 import { cn } from '@/lib/cn'
-
-const FORMATS = ['26×26×4cm', '30×30×4cm', '33×33×4cm', '36×36×4cm']
+import { PRODUCTS, PRODUCT_CATEGORIES } from '@/lib/products'
 
 const VOLUMES = [
   { value: '<500', label: '< 500 unités/mois' },
@@ -23,17 +22,128 @@ const FIELD_CLASS =
 
 const LABEL_CLASS = 'font-mono text-xs text-text2 uppercase tracking-widest mb-1 block'
 
+const PRODUCTS_BY_CATEGORY = PRODUCT_CATEGORIES.map((cat) => ({
+  category: cat,
+  items: PRODUCTS.filter((p) => p.category === cat),
+}))
+
+function getProduct(id) {
+  return PRODUCTS.find((p) => p.id === id) ?? null
+}
+
+let lineCounter = 0
+function makeLineId() {
+  return `line-${++lineCounter}`
+}
+
+function emptyLine() {
+  return { lineId: makeLineId(), productId: '', dimension: '', volume: '' }
+}
+
+function ProductLine({ line, onChange, onRemove, isOnly }) {
+  const product = getProduct(line.productId)
+  const hasDimensions = product?.dimensions?.length > 0
+
+  function handleProductChange(e) {
+    const id = e.target.value
+    const p = getProduct(id)
+    onChange({ ...line, productId: id, dimension: p?.dimensions?.[0] ?? '' })
+  }
+
+  return (
+    <div className="border border-[var(--border)] rounded p-4 bg-surface">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+        {/* Product + dimension row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Product */}
+          <div>
+            <label className={LABEL_CLASS}>Produit</label>
+            <select
+              value={line.productId}
+              onChange={handleProductChange}
+              className={cn(FIELD_CLASS, !line.productId && 'text-text3')}
+            >
+              <option value="">— Choisir un produit —</option>
+              {PRODUCTS_BY_CATEGORY.map(({ category, items }) => (
+                <optgroup key={category} label={category}>
+                  {items.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* Dimension */}
+          <div>
+            <label className={LABEL_CLASS}>Dimension</label>
+            {hasDimensions ? (
+              <select
+                value={line.dimension}
+                onChange={(e) => onChange({ ...line, dimension: e.target.value })}
+                className={cn(FIELD_CLASS, !line.dimension && 'text-text3')}
+                disabled={!line.productId}
+              >
+                <option value="">— Format —</option>
+                {product.dimensions.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={line.dimension}
+                onChange={(e) => onChange({ ...line, dimension: e.target.value })}
+                placeholder={line.productId ? 'Préciser si besoin' : '—'}
+                disabled={!line.productId}
+                className={FIELD_CLASS}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Volume */}
+        <div className="sm:w-48">
+          <label className={LABEL_CLASS}>Quantité / mois</label>
+          <select
+            value={line.volume}
+            onChange={(e) => onChange({ ...line, volume: e.target.value })}
+            className={cn(FIELD_CLASS, !line.volume && 'text-text3')}
+            disabled={!line.productId}
+          >
+            <option value="">— Volume —</option>
+            {VOLUMES.map((v) => (
+              <option key={v.value} value={v.value}>{v.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {!isOnly && (
+        <div className="flex justify-end mt-3">
+          <button
+            type="button"
+            onClick={onRemove}
+            className="font-mono text-xs text-text3 hover:text-text transition-colors uppercase tracking-widest"
+          >
+            Supprimer
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DevisPage() {
   const [form, setForm] = useState({
     restaurant: '',
     name: '',
     email: '',
     phone: '',
-    formats: [],
-    volume: '',
     boxType: '',
     notes: '',
   })
+  const [lines, setLines] = useState([emptyLine()])
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
@@ -42,13 +152,16 @@ export default function DevisPage() {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  function toggleFormat(format) {
-    setForm((f) => ({
-      ...f,
-      formats: f.formats.includes(format)
-        ? f.formats.filter((v) => v !== format)
-        : [...f.formats, format],
-    }))
+  function updateLine(lineId, updated) {
+    setLines((ls) => ls.map((l) => (l.lineId === lineId ? updated : l)))
+  }
+
+  function addLine() {
+    setLines((ls) => [...ls, emptyLine()])
+  }
+
+  function removeLine(lineId) {
+    setLines((ls) => ls.filter((l) => l.lineId !== lineId))
   }
 
   async function handleSubmit(e) {
@@ -56,11 +169,22 @@ export default function DevisPage() {
     setError('')
     setSubmitting(true)
 
+    const payload = {
+      ...form,
+      products: lines
+        .filter((l) => l.productId)
+        .map((l) => ({
+          product: getProduct(l.productId)?.name ?? l.productId,
+          dimension: l.dimension,
+          volume: l.volume,
+        })),
+    }
+
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (data.success) {
@@ -93,21 +217,20 @@ export default function DevisPage() {
             <br />
             Ou écrivez-nous directement à{' '}
             <a
-              href="mailto:studiozeroquatre@gmail.com"
+              href="mailto:contact@studiozeroquatre.com"
               className="text-text2 hover:text-text transition-colors border-b border-[var(--border2)] pb-0.5"
             >
-              studiozeroquatre@gmail.com
+              contact@studiozeroquatre.com
             </a>
           </p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
-          {/* Restaurant + Contact name */}
+          {/* Contact */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label htmlFor="restaurant" className={LABEL_CLASS}>Nom du restaurant</label>
+              <label className={LABEL_CLASS}>Nom du restaurant</label>
               <input
-                id="restaurant"
                 type="text"
                 required
                 value={form.restaurant}
@@ -117,9 +240,8 @@ export default function DevisPage() {
               />
             </div>
             <div>
-              <label htmlFor="name" className={LABEL_CLASS}>Votre nom</label>
+              <label className={LABEL_CLASS}>Votre nom</label>
               <input
-                id="name"
                 type="text"
                 required
                 value={form.name}
@@ -130,12 +252,10 @@ export default function DevisPage() {
             </div>
           </div>
 
-          {/* Email + Phone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
             <div>
-              <label htmlFor="email" className={LABEL_CLASS}>Email</label>
+              <label className={LABEL_CLASS}>Email</label>
               <input
-                id="email"
                 type="email"
                 required
                 value={form.email}
@@ -145,9 +265,8 @@ export default function DevisPage() {
               />
             </div>
             <div>
-              <label htmlFor="phone" className={LABEL_CLASS}>Téléphone</label>
+              <label className={LABEL_CLASS}>Téléphone</label>
               <input
-                id="phone"
                 type="tel"
                 value={form.phone}
                 onChange={(e) => updateField('phone', e.target.value)}
@@ -157,68 +276,34 @@ export default function DevisPage() {
             </div>
           </div>
 
-          {/* Formats souhaités */}
-          <fieldset className="mb-8">
-            <legend className={cn(LABEL_CLASS, 'mb-3')}>Formats souhaités</legend>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {FORMATS.map((format) => (
-                <label
-                  key={format}
-                  className={cn(
-                    'flex items-center gap-2 cursor-pointer font-mono text-xs text-text2 border rounded px-3 py-3 transition-colors min-h-[44px]',
-                    form.formats.includes(format)
-                      ? 'border-[var(--text)] bg-surface text-text'
-                      : 'border-[var(--border)] hover:border-[var(--border2)]'
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.formats.includes(format)}
-                    onChange={() => toggleFormat(format)}
-                    className="sr-only"
-                  />
-                  <span
-                    className={cn(
-                      'w-3.5 h-3.5 rounded-sm border flex-shrink-0 flex items-center justify-center',
-                      form.formats.includes(format)
-                        ? 'bg-[var(--text)] border-[var(--text)]'
-                        : 'border-[var(--border2)]'
-                    )}
-                    aria-hidden="true"
-                  >
-                    {form.formats.includes(format) && (
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                        <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                  {format}
-                </label>
+          {/* Products */}
+          <div className="mb-10">
+            <p className={cn(LABEL_CLASS, 'mb-4')}>Produits souhaités</p>
+            <div className="flex flex-col gap-3">
+              {lines.map((line) => (
+                <ProductLine
+                  key={line.lineId}
+                  line={line}
+                  onChange={(updated) => updateLine(line.lineId, updated)}
+                  onRemove={() => removeLine(line.lineId)}
+                  isOnly={lines.length === 1}
+                />
               ))}
             </div>
-          </fieldset>
-
-          {/* Volume mensuel estimé */}
-          <div className="mb-6">
-            <label htmlFor="volume" className={LABEL_CLASS}>Volume mensuel estimé</label>
-            <select
-              id="volume"
-              value={form.volume}
-              onChange={(e) => updateField('volume', e.target.value)}
-              className={cn(FIELD_CLASS, !form.volume && 'text-text3')}
+            <button
+              type="button"
+              onClick={addLine}
+              className="mt-3 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-text2 hover:text-text transition-colors"
             >
-              <option value="">— Sélectionner —</option>
-              {VOLUMES.map((v) => (
-                <option key={v.value} value={v.value}>{v.label}</option>
-              ))}
-            </select>
+              <span className="w-4 h-4 border border-[var(--border2)] rounded-sm flex items-center justify-center text-base leading-none">+</span>
+              Ajouter un produit
+            </button>
           </div>
 
-          {/* Type de boîte */}
+          {/* Type */}
           <div className="mb-8">
-            <label htmlFor="boxType" className={LABEL_CLASS}>Type de boîte</label>
+            <label className={LABEL_CLASS}>Type de packaging</label>
             <select
-              id="boxType"
               value={form.boxType}
               onChange={(e) => updateField('boxType', e.target.value)}
               className={cn(FIELD_CLASS, !form.boxType && 'text-text3')}
@@ -230,11 +315,10 @@ export default function DevisPage() {
             </select>
           </div>
 
-          {/* Informations complémentaires */}
+          {/* Notes */}
           <div className="mb-8">
-            <label htmlFor="notes" className={LABEL_CLASS}>Informations complémentaires</label>
+            <label className={LABEL_CLASS}>Informations complémentaires</label>
             <textarea
-              id="notes"
               rows={4}
               value={form.notes}
               onChange={(e) => updateField('notes', e.target.value)}
@@ -243,14 +327,12 @@ export default function DevisPage() {
             />
           </div>
 
-          {/* Error */}
           {error && (
             <p className="font-mono text-xs text-red-600 mb-4" role="alert">
               {error}
             </p>
           )}
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={submitting}
