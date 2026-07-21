@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import Image from 'next/image'
-import { generateRef } from '@/lib/generateRef'
 
 const S = {
   label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, color: '#444', marginBottom: 12 },
@@ -10,8 +9,8 @@ const S = {
 export default function Dashboard({ client, onLogout }) {
   const [quantities, setQuantities] = useState({})
   const [note, setNote] = useState('')
-  const [view, setView] = useState('order')
-  const [orderRef, setOrderRef] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const lines = client.products
     .map(p => ({ ...p, qty: parseInt(quantities[p.id] || 0) }))
@@ -20,15 +19,26 @@ export default function Dashboard({ client, onLogout }) {
 
   const total = lines.reduce((s, l) => s + l.sub, 0)
 
-  function handleConfirm() {
-    setOrderRef(generateRef())
-    setView('success')
-  }
-
-  function handleNewOrder() {
-    setQuantities({})
-    setNote('')
-    setView('order')
+  async function handleConfirm() {
+    setError('')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/portal/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: client.id, quantities, note }),
+      })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        window.location.href = data.url
+        return
+      }
+      setError(data.error || 'Erreur lors de la création du paiement.')
+      setSubmitting(false)
+    } catch {
+      setError('Erreur de connexion. Veuillez réessayer.')
+      setSubmitting(false)
+    }
   }
 
   const navBar = (
@@ -36,35 +46,6 @@ export default function Dashboard({ client, onLogout }) {
       <Image src="/images/logo.jpg" alt="Studio 04" width={80} height={32} style={{ objectFit: 'contain', filter: 'invert(1)' }} />
     </div>
   )
-
-  if (view === 'success') {
-    return (
-      <div style={{ minHeight: '100dvh', background: '#000', color: '#f0f0f0', fontFamily: 'var(--font-mono), ui-monospace, monospace' }}>
-        {navBar}
-        <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-          <div style={{ fontSize: 48, marginBottom: 24, color: '#fff' }}>✓</div>
-          <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: 28, fontWeight: 800, color: '#fff', marginBottom: 12 }}>
-            Commande envoyée !
-          </div>
-          <div style={{ fontSize: 13, color: '#888', lineHeight: 1.7, maxWidth: 400, margin: '0 auto 32px' }}>
-            Studio Zeroquatre a reçu votre commande et vous contactera pour confirmer la date de livraison et le paiement.
-          </div>
-          <div style={{ display: 'inline-block', background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 3, padding: '10px 20px', fontSize: 13, color: '#fff', letterSpacing: 2, marginBottom: 32 }}>
-            {orderRef}
-          </div>
-          <br /><br />
-          <button
-            onClick={handleNewOrder}
-            style={{ background: 'none', border: '1px solid #fff', color: '#fff', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: 12, padding: '10px 24px', cursor: 'pointer', borderRadius: 3, textTransform: 'uppercase', letterSpacing: 1, transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#000' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#fff' }}
-          >
-            Nouvelle commande
-          </button>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div style={{ minHeight: '100dvh', background: '#000', color: '#f0f0f0', fontFamily: 'var(--font-mono), ui-monospace, monospace' }}>
@@ -177,20 +158,26 @@ export default function Dashboard({ client, onLogout }) {
         {/* Payment notice */}
         <div style={{ background: '#0a0a0a', border: '1px dashed #2a2a2a', borderRadius: 3, padding: 20, textAlign: 'center', marginBottom: 24 }}>
           <p style={{ fontSize: 12, color: '#444', lineHeight: 1.6 }}>
-            <strong style={{ color: '#ff6b35' }}>Paiement en ligne bientôt disponible</strong><br />
-            Votre commande sera confirmée par Pedro qui vous enverra un lien de paiement.
+            Paiement sécurisé par <strong style={{ color: '#f0f0f0' }}>Stripe</strong>.<br />
+            Vous serez redirigé vers une page de paiement, puis Pedro reçoit votre commande.
           </p>
         </div>
+
+        {error && (
+          <div style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid #ff6b35', borderRadius: 3, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#ff6b35' }}>
+            {error}
+          </div>
+        )}
 
         {/* Confirm */}
         <button
           onClick={handleConfirm}
-          disabled={total === 0}
-          style={{ width: '100%', background: '#fff', color: '#000', border: 'none', borderRadius: 3, fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: 13, padding: '14px 32px', cursor: total === 0 ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: 1, transition: 'all 0.15s', opacity: total === 0 ? 0.3 : 1 }}
-          onMouseEnter={e => { if (total > 0) e.currentTarget.style.background = '#e0e0e0' }}
+          disabled={total === 0 || submitting}
+          style={{ width: '100%', background: '#fff', color: '#000', border: 'none', borderRadius: 3, fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: 13, padding: '14px 32px', cursor: total === 0 || submitting ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: 1, transition: 'all 0.15s', opacity: total === 0 || submitting ? 0.3 : 1 }}
+          onMouseEnter={e => { if (total > 0 && !submitting) e.currentTarget.style.background = '#e0e0e0' }}
           onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}
         >
-          Confirmer la commande
+          {submitting ? 'Redirection…' : `Payer ${total.toFixed(2).replace('.', ',')} €`}
         </button>
       </div>
     </div>
