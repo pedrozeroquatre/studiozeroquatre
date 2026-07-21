@@ -8,19 +8,19 @@ import FitTitle from './FitTitle'
 const slides = [
   {
     title: 'Volta Supper Club',
-    text: "Packaging complet pour un restaurant bruxellois exigeant — boîtes pizza kraft, sacs sur mesure et barquettes illustrées qui prolongent l'expérience au-delà de la table.",
+    text: "Une identité packaging pensée pour prolonger l'expérience Volta, jusqu'au prénom de chaque client.",
     image: '/images/volta/volta-01.jpg',
     alt: 'Boîte pizza Volta Supper Club',
   },
   {
     title: 'La Bottega della Pizza',
-    text: "Boîte rose signature pour une pizzeria bruxelloise de caractère — illustration noir et blanc façon encre qui capte l'énergie de l'adresse et la fait voyager jusqu'au client.",
+    text: "Une couleur signature, immédiatement reconnaissable.",
     image: '/images/la_bottega_pizza.jpeg',
     alt: 'Boîte pizza La Bottega della Pizza',
   },
   {
     title: 'Bros Pizza & Bar',
-    text: "Packaging affirmé pour Bros Pizza & Bar — codes rouge et blanc, sceau circulaire et typographie bold qui ancrent l'identité visuelle dans un univers de rituels italiens modernes.",
+    text: "Une identité packaging pensée pour créer une expérience interactive à chaque commande.",
     image: '/images/brospizza_box.jpeg',
     alt: 'Boîte pizza Bros Pizza & Bar',
   },
@@ -46,10 +46,10 @@ export default function VoltaSection() {
   const next = () => { setCurrent(i => (i + 1) % slides.length); resetTimer() }
 
   return (
-    <section id="realisations" className="pt-16 pb-24 px-6 bg-bg">
+    <section id="realisations" className="scroll-mt-24 pt-16 pb-24 px-6 bg-bg">
       <div className="max-w-6xl mx-auto">
         <p className="font-mono text-xs uppercase tracking-widest text-text3 mb-10">
-          Réalisation
+          Réalisations
         </p>
 
         {/* Sliding track */}
