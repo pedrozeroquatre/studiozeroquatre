@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import LoginForm from '@/components/portal/LoginForm'
 import Dashboard from '@/components/portal/Dashboard'
+import PortalNav from '@/components/portal/PortalNav'
 
 export default function PortalPage() {
   const [view, setView] = useState('login')
@@ -51,9 +51,7 @@ export default function PortalPage() {
   if (view === 'success') {
     return (
       <div style={{ minHeight: '100dvh', background: '#000', color: '#f0f0f0', fontFamily: 'var(--font-mono), ui-monospace, monospace' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #1e1e1e', maxWidth: 900, margin: '0 auto' }}>
-          <Image src="/images/logo.jpg" alt="Studio 04" width={80} height={32} style={{ objectFit: 'contain', filter: 'invert(1)' }} />
-        </div>
+        <PortalNav />
         <div style={{ textAlign: 'center', padding: '80px 20px' }}>
           <div style={{ fontSize: 48, marginBottom: 24, color: '#fff' }}>✓</div>
           <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: 28, fontWeight: 800, color: '#fff', marginBottom: 12 }}>

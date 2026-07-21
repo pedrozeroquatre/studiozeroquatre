@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
+import PortalNav from './PortalNav'
 
 export default function LoginForm({ onLogin, error }) {
   const [code, setCode] = useState('')
@@ -31,8 +31,7 @@ export default function LoginForm({ onLogin, error }) {
 
   return (
     <div style={{ minHeight: '100dvh', background: '#000', color: '#f0f0f0', fontFamily: 'var(--font-mono), ui-monospace, monospace' }}>
-      <div style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e1e1e', maxWidth: 900, margin: '0 auto' }}>
-        <Image src="/images/logo.jpg" alt="Studio 04" width={80} height={32} style={{ objectFit: 'contain', filter: 'invert(1)' }} />
+      <PortalNav>
         <Link
           href="/"
           style={{ background: 'none', border: '1px solid #2a2a2a', color: '#666', fontFamily: 'inherit', fontSize: 11, padding: '6px 14px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: 1, textDecoration: 'none', transition: 'all 0.15s' }}
@@ -41,7 +40,7 @@ export default function LoginForm({ onLogin, error }) {
         >
           ← Retour
         </Link>
-      </div>
+      </PortalNav>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px' }}>
         <div style={{ background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 8, padding: 40, width: '100%', maxWidth: 420 }}>
