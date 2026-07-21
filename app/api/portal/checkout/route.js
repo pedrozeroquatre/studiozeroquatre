@@ -3,8 +3,17 @@ import { getStripe } from '@/lib/stripe'
 import { findClientById } from '@/lib/clients'
 import { generateRef } from '@/lib/generateRef'
 
+// { date: 'yyyy-mm-dd', time: 'hh:mm' } → '25/07/2026 à 14:00' (champs vides tolérés)
+function formatDelivery(d) {
+  if (!d || typeof d !== 'object') return ''
+  const date = typeof d.date === 'string' ? d.date.slice(0, 10) : ''
+  const time = typeof d.time === 'string' ? d.time.slice(0, 5) : ''
+  const nice = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split('-').reverse().join('/') : ''
+  return [nice, time].filter(Boolean).join(' à ')
+}
+
 export async function POST(request) {
-  const { clientId, quantities, note } = await request.json()
+  const { clientId, quantities, note, delivery } = await request.json()
 
   const client = findClientById(clientId)
   if (!client) {
@@ -56,6 +65,7 @@ export async function POST(request) {
       clientId: client.id,
       clientName: client.name,
       lines: summary.join(', ').slice(0, 490),
+      delivery: formatDelivery(delivery).slice(0, 490),
       note: (typeof note === 'string' ? note : '').slice(0, 490),
     },
   })

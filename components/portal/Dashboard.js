@@ -5,18 +5,33 @@ import { getLastOrder, saveLastOrder } from '@/lib/lastOrder'
 
 const S = {
   label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, color: '#444', marginBottom: 12 },
-  chip: { background: '#111', border: '1px solid #2a2a2a', color: '#f0f0f0', fontFamily: 'inherit', fontSize: 12, padding: '6px 12px', borderRadius: 3, cursor: 'pointer', transition: 'all 0.15s' },
 }
 
 const QUICK = [500, 1000, 2000]
+
+// Local (not UTC) yyyy-mm-dd — used as the min date so a past day can't be picked.
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Circular "redo" arrow — used on the reorder button.
+function ReloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 2v6h6" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
+    </svg>
+  )
+}
 
 export default function Dashboard({ client, onLogout }) {
   const [quantities, setQuantities] = useState({})
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [bulk, setBulk] = useState('')
   const [lastOrder, setLastOrder] = useState(null)
+  const [delivery, setDelivery] = useState({ date: '', time: '' })
 
   useEffect(() => { setLastOrder(getLastOrder(client.id)) }, [client.id])
 
@@ -35,14 +50,9 @@ export default function Dashboard({ client, onLogout }) {
     : []
 
   const setLine = (id, n) => setQuantities(q => ({ ...q, [id]: String(n) }))
-  const applyAll = n => setQuantities(Object.fromEntries(client.products.map(p => [p.id, String(n)])))
-  const applyBulk = () => { const n = parseInt(bulk); if (n > 0) applyAll(n) }
   const reorderLast = () => setQuantities(
     Object.fromEntries(lastLines.map(l => [l.id, String(l.qty)]))
   )
-
-  const hoverChip = e => { e.currentTarget.style.borderColor = '#fff'; e.currentTarget.style.color = '#fff' }
-  const leaveChip = e => { e.currentTarget.style.borderColor = '#2a2a2a'; e.currentTarget.style.color = '#f0f0f0' }
 
   async function handleConfirm() {
     setError('')
@@ -52,7 +62,7 @@ export default function Dashboard({ client, onLogout }) {
       const res = await fetch('/api/portal/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: client.id, quantities, note }),
+        body: JSON.stringify({ clientId: client.id, quantities, note, delivery }),
       })
       const data = await res.json()
       if (res.ok && data.url) {
@@ -101,42 +111,19 @@ export default function Dashboard({ client, onLogout }) {
             </div>
             <button
               onClick={reorderLast}
-              style={{ background: '#fff', color: '#000', border: 'none', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: 11, padding: '9px 18px', cursor: 'pointer', borderRadius: 3, textTransform: 'uppercase', letterSpacing: 1, whiteSpace: 'nowrap', transition: 'background 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#e0e0e0' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}
+              aria-label="Recommencer cette commande"
+              title="Recommencer cette commande"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', color: '#f0f0f0', border: '1px solid #2a2a2a', width: 38, height: 38, cursor: 'pointer', borderRadius: 3, flexShrink: 0, transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#fff'; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a2a'; e.currentTarget.style.color = '#f0f0f0' }}
             >
-              Recommander
+              <ReloadIcon />
             </button>
           </div>
         )}
 
         {/* Vos formats */}
-        <div style={S.label}>Vos formats</div>
-
-        {/* Même quantité partout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-          <span style={{ fontSize: 11, color: '#666', marginRight: 2 }}>Même quantité partout :</span>
-          {QUICK.map(n => (
-            <button key={n} onClick={() => applyAll(n)} style={S.chip} onMouseEnter={hoverChip} onMouseLeave={leaveChip}>
-              {n.toLocaleString('fr')}
-            </button>
-          ))}
-          <input
-            type="number"
-            min="0"
-            step="100"
-            value={bulk}
-            onChange={e => setBulk(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') applyBulk() }}
-            placeholder="Autre"
-            style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 3, color: '#f0f0f0', fontFamily: 'inherit', fontSize: 12, padding: '6px 10px', width: 80, textAlign: 'right', outline: 'none' }}
-            onFocus={e => { e.target.style.borderColor = '#fff' }}
-            onBlur={e => { e.target.style.borderColor = '#2a2a2a' }}
-          />
-          <button onClick={applyBulk} style={S.chip} onMouseEnter={hoverChip} onMouseLeave={leaveChip}>
-            Appliquer
-          </button>
-        </div>
+        <div style={{ ...S.label, marginBottom: 16 }}>Vos formats</div>
 
         <div style={{ overflowX: 'auto', marginBottom: 32 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -221,13 +208,39 @@ export default function Dashboard({ client, onLogout }) {
           </div>
         </div>
 
+        {/* Livraison souhaitée */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={S.label}>Livraison souhaitée (optionnel)</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              min={todayISO()}
+              value={delivery.date}
+              onChange={e => setDelivery(d => ({ ...d, date: e.target.value }))}
+              aria-label="Date de livraison souhaitée"
+              style={{ background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 3, color: '#f0f0f0', fontFamily: 'inherit', fontSize: 12, padding: '10px 12px', outline: 'none', colorScheme: 'dark', transition: 'border-color 0.15s' }}
+              onFocus={e => { e.target.style.borderColor = '#fff' }}
+              onBlur={e => { e.target.style.borderColor = '#2a2a2a' }}
+            />
+            <input
+              type="time"
+              value={delivery.time}
+              onChange={e => setDelivery(d => ({ ...d, time: e.target.value }))}
+              aria-label="Heure de livraison souhaitée"
+              style={{ background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 3, color: '#f0f0f0', fontFamily: 'inherit', fontSize: 12, padding: '10px 12px', outline: 'none', colorScheme: 'dark', transition: 'border-color 0.15s' }}
+              onFocus={e => { e.target.style.borderColor = '#fff' }}
+              onBlur={e => { e.target.style.borderColor = '#2a2a2a' }}
+            />
+          </div>
+        </div>
+
         {/* Note */}
         <div style={{ marginBottom: 24 }}>
           <div style={S.label}>Note (optionnel)</div>
           <textarea
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder="Date de livraison souhaitée, informations complémentaires..."
+            placeholder="Informations complémentaires..."
             style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 3, color: '#f0f0f0', fontFamily: 'inherit', fontSize: 12, padding: 12, outline: 'none', resize: 'vertical', minHeight: 80, lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color 0.15s' }}
             onFocus={e => { e.target.style.borderColor = '#fff' }}
             onBlur={e => { e.target.style.borderColor = '#2a2a2a' }}

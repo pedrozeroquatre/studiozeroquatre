@@ -54,6 +54,15 @@ Tout est commité et poussé sur `main` (emails, devis 4 produits, Stripe, produ
 - [ ] Repointer l'URL du webhook Stripe vers le domaine de prod
 - [ ] (optionnel) Brancher les assets non utilisés si besoin : `LOGOGO.svg`, `product_53→56`
 
+## 5. Légal (à faire à la fin) ⚖️
+Obligatoire en Belgique dès qu'il y a formulaires + paiement en ligne. Pages à créer dans `app/(site)/` + liens dans le [Footer](components/layout/Footer.js). **Nécessite les vraies infos de l'entreprise** (dénomination, forme juridique, adresse/siège, **n° d'entreprise BCE**, **n° TVA**).
+
+- [ ] **Mentions légales** — obligatoire (Code de droit économique, livre XII) : identité entreprise, n° BCE, n° TVA, contact, hébergeur
+- [ ] **Politique de confidentialité (RGPD)** — données collectées (contact, devis, portail), finalités, base légale, sous-traitants (Stripe, SMTP Private Email), durées, droits, recours à l'APD (rue de la Presse 35, 1000 Bruxelles)
+- [ ] **Cookies** — léger : pas d'analytics, juste `localStorage` fonctionnel (dernière commande) → simple mention, pas de bandeau de consentement nécessaire
+- [ ] (optionnel) **CGV** — recommandées vu le paiement : délais, livraison, retours, garanties. Spécifiques à l'activité → à rédiger avec les vraies conditions
+- [ ] Décider FR seul ou FR/EN pour ces pages (le site a un toggle FR/EN)
+
 ---
 
 ### Notes

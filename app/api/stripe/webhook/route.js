@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sendMail } from '@/lib/mailer'
+import { sendMail, renderEmail } from '@/lib/mailer'
 import { getStripe } from '@/lib/stripe'
 
 // Stripe needs the raw request body to verify the signature — never parse it as
@@ -30,6 +30,7 @@ export async function POST(request) {
       `Statut paiement : ${session.payment_status}`,
       ``,
       `Commande : ${m.lines || '—'}`,
+      `Livraison souhaitée : ${m.delivery || '—'}`,
       m.note ? `\nNote :\n${m.note}` : null,
       ``,
       `Session Stripe : ${session.id}`,
@@ -39,8 +40,22 @@ export async function POST(request) {
 
     try {
       await sendMail({
+        fromName: `${m.clientName || 'Client'} · commande payée`,
         subject: `Commande payée — ${m.clientName || 'Client'} (${m.ref || session.id})`,
         text: lines,
+        html: renderEmail({
+          title: 'Commande payée',
+          rows: [
+            ['Référence', m.ref || '—'],
+            ['Client', m.clientName || '—'],
+            ['Montant payé', `${total} €`],
+            ['Statut paiement', session.payment_status],
+            ['Commande', m.lines || '—'],
+            ['Livraison souhaitée', m.delivery || '—'],
+            ['Session Stripe', session.id],
+          ],
+          message: m.note ? `Note du client :\n${m.note}` : undefined,
+        }),
       })
     } catch (err) {
       // Don't 500 back to Stripe on email failure — the payment already
