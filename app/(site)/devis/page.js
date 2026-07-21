@@ -176,7 +176,7 @@ export default function DevisPage() {
         .map((l) => ({
           product: getProduct(l.productId)?.name ?? l.productId,
           dimension: l.dimension,
-          volume: l.volume,
+          volume: VOLUMES.find((v) => v.value === l.volume)?.label ?? l.volume,
         })),
     }
 
