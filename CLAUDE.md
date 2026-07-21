@@ -37,9 +37,11 @@ The portal has no real session or persistence. Login POSTs the code to `/api/por
 
 **Order submission** (`Dashboard.js`) currently only sets local state and shows a success screen — no API call is made on confirm. The `/api/orders` route is a logging stub with instructions for wiring up Google Sheets.
 
-### API stubs
+### Email
 
-Both `/api/contact` and `/api/orders` only `console.log` submissions. Each file contains inline comments with the exact steps to wire up Resend (email) and Google Sheets respectively. Do not remove these comments — they are the integration plan.
+All outbound email goes through `lib/mailer.js` (`sendMail`), a nodemailer transport over Namecheap Private Email SMTP (`mail.privateemail.com:465`). It sends from and to the `contact@` mailbox (`SMTP_USER`), with `replyTo` set to the visitor's address. Three routes use it: `/api/contact` and `/api/orders` (form notifications) and `/api/stripe/webhook` (paid-order notification). No Resend, no domain verification — Private Email already handles SPF/DKIM.
+
+`/api/orders` still contains an inline comment block with the steps to wire up Google Sheets — do not remove it, it's the integration plan.
 
 ## Design system
 
@@ -79,6 +81,10 @@ The portal (`/portal` route and its components) uses **inline styles exclusively
 ## Environment variables
 
 ```
+SMTP_USER                    # contact@studiozeroquatre.com — Private Email mailbox
+SMTP_PASSWORD                # mailbox password
+SMTP_HOST                    # optional, defaults to mail.privateemail.com
+SMTP_PORT                    # optional, defaults to 465 (SSL)
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
@@ -89,4 +95,4 @@ GOOGLE_SERVICE_ACCOUNT_KEY   # JSON string of service account
 SPREADSHEET_ID               # Google Sheets target
 ```
 
-None of these are wired up in the codebase yet — they are reserved for future integrations (Supabase for data persistence, Stripe for payment, Google Sheets for order logging).
+`SMTP_USER` / `SMTP_PASSWORD` power `lib/mailer.js` (form + order emails). The rest are reserved for future integrations (Supabase for data persistence, Stripe for payment, Google Sheets for order logging) and are not wired up yet.
