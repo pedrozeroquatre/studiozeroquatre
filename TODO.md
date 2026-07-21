@@ -20,7 +20,7 @@ Le code est prêt ([checkout](app/api/portal/checkout/route.js), [webhook](app/a
 - [x] (code) Basculer les 3 routes sur `sendMail` + gabarit HTML + nom d'expéditeur = visiteur
 - [x] Ajouter `SMTP_USER` + `SMTP_PASSWORD` dans `.env.local` (host/port par défaut = `mail.privateemail.com` / `465`)
 - [x] **Réception confirmée** en local (contact + devis multi-articles) dans la boîte `contact@`
-- [ ] Reporter `SMTP_USER` + `SMTP_PASSWORD` dans les variables d'env de l'hébergeur (voir §4)
+- [x] Reporter `SMTP_USER` + `SMTP_PASSWORD` dans les variables d'env de l'hébergeur
 
 ## 3. Persistance des commandes 📦
 Aujourd'hui une commande payée déclenche seulement un **email**. Objectif : email + Google Sheets + Supabase. Tout doit se brancher dans le **webhook Stripe** (seul point où le paiement est confirmé), pas dans `orders/route.js`.
@@ -34,7 +34,8 @@ Tout est commité et poussé sur `main` (emails, devis 4 produits, Stripe, produ
 
 - [x] Commiter + pousser l'intégration Stripe, les emails et les 4 produits sur `main`
 - [ ] Déployer (Vercel recommandé)
-- [ ] Configurer **toutes** les variables d'env sur l'hébergeur : `SMTP_USER`, `SMTP_PASSWORD`, puis les clés Stripe (§1) et, plus tard, Google/Supabase (§3)
+- [x] Variables SMTP sur l'hébergeur (`SMTP_USER`, `SMTP_PASSWORD`)
+- [ ] Ajouter le reste des variables d'env sur l'hébergeur : clés Stripe (§1), puis Google/Supabase (§3)
 - [ ] Repointer l'URL du webhook Stripe vers le domaine de prod
 - [ ] (optionnel) Brancher les assets non utilisés si besoin : `LOGOGO.svg`, `product_53→56`
 
