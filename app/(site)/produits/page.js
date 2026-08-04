@@ -3,10 +3,9 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-// NB : les noms de ces deux fichiers sont inversés par rapport à leur contenu —
-// « blank_noshade » contient le design VOLTA, « design_noshade » la boîte vierge.
+// NB : « pizza_box_design_noshade » contient en fait la boîte vierge (nom trompeur).
 import pizzaBoxBlank from '@/assets/pizza_box_design_noshade.jpeg'
-import pizzaBoxDesign from '@/assets/pizza_box_blank_noshade.jpeg'
+import pizzaBoxDesign from '@/assets/pizza_box_design_new.jpeg'
 import burgerBoxBlank from '@/assets/burger_box_blank.jpeg'
 import burgerBoxDesign from '@/assets/burger_box_design.jpeg'
 import sacKraftBlank from '@/assets/sac_kraft_blank.jpeg'
