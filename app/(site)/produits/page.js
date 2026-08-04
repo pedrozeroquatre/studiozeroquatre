@@ -3,41 +3,46 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import doggybag2 from '@/assets/doggy_bag_2.jpeg'
-import doggybag1 from '@/assets/doggybag_1.jpeg'
-import pizzaBox from '@/assets/CB5B7D13-E332-4052-A09E-F421D9F809DB.PNG'
-import voltaPizza from '@/assets/volta_pizza.jpeg'
-import burgerBox from '@/assets/burger_box.jpeg'
+// NB : les noms de ces deux fichiers sont inversés par rapport à leur contenu —
+// « blank_noshade » contient le design VOLTA, « design_noshade » la boîte vierge.
+import pizzaBoxBlank from '@/assets/pizza_box_design_noshade.jpeg'
+import pizzaBoxDesign from '@/assets/pizza_box_blank_noshade.jpeg'
+import burgerBoxBlank from '@/assets/burger_box_blank.jpeg'
+import burgerBoxDesign from '@/assets/burger_box_design.jpeg'
+import sacKraftBlank from '@/assets/sac_kraft_blank.jpeg'
+import sacKraftDesign from '@/assets/sac_kraft_design.jpeg'
+import sacKraftSimpleBlank from '@/assets/sac_kraft_no_handle_blank.jpeg'
+import sacKraftSimpleDesign from '@/assets/sac_kraft_no_handle_design.jpeg'
 
 const PRODUCTS = [
   {
     id: 'boite-pizza',
-    images: [pizzaBox, voltaPizza],
+    images: [pizzaBoxBlank, pizzaBoxDesign],
     alt: 'Boîte pizza personnalisable',
     name: 'Boîte pizza',
     description: 'Disponible en plusieurs formats, entièrement personnalisable selon votre identité.',
-    dimensions: ['28 × 28 × 4 cm', '33 × 33 × 4 cm', '38 × 38 × 4 cm'],
+    dimensions: ['26 × 26 × 4 cm', '30 × 30 × 4 cm', '33 × 33 × 4 cm', '36 × 36 × 4 cm'],
   },
   {
     id: 'boite-burger',
-    image: burgerBox,
-    alt: 'Boîte burger blanche',
+    images: [burgerBoxBlank, burgerBoxDesign],
+    alt: 'Boîte burger personnalisable',
     name: 'Boîte burger',
     description: 'Conçue pour valoriser votre marque, du design à l’impression.',
     dimensions: ['10 × 10 × 8 cm', '12 × 12 × 10 cm', '15 × 15 × 12 cm'],
   },
   {
     id: 'sac-poignees',
-    image: doggybag2,
-    alt: 'Sac kraft à poignées torsadées',
+    images: [sacKraftBlank, sacKraftDesign],
+    alt: 'Sac à poignées torsadées personnalisable',
     name: 'Sac à poignées',
     description: 'Disponible en blanc ou kraft, avec poignées plates ou torsadées.',
     dimensions: ['S — 22 × 12 × 22 cm', 'M — 28 × 16 × 28 cm', 'L — 35 × 20 × 32 cm'],
   },
   {
     id: 'sac-kraft',
-    image: doggybag1,
-    alt: 'Sac kraft simple sans poignées',
+    images: [sacKraftSimpleBlank, sacKraftSimpleDesign],
+    alt: 'Sac kraft simple personnalisable',
     name: 'Sac kraft simple',
     description: 'Une solution minimaliste, personnalisable dans tous les formats.',
     dimensions: ['S — 14 × 8 × 26 cm', 'M — 18 × 10 × 30 cm', 'L — 24 × 12 × 38 cm'],

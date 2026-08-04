@@ -26,7 +26,7 @@ function PhoneIcon() {
 }
 
 const CONTACTS = [
-  { Icon: MailIcon, label: 'studiozeroquatre@gmail.com', href: 'mailto:studiozeroquatre@gmail.com' },
+  { Icon: MailIcon, label: 'contact@studiozeroquatre.com', href: 'mailto:contact@studiozeroquatre.com' },
   { Icon: InstagramIcon, label: '@studiozeroquatre', href: 'https://instagram.com/studiozeroquatre' },
   { Icon: PhoneIcon, label: '+32 471 34 54 34', href: 'tel:+32471345434' },
 ]

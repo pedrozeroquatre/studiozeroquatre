@@ -12,7 +12,7 @@ const STEPS = [
   {
     num: '03',
     title: 'Production à Bruxelles',
-    desc: 'Vos boîtes sont produites à Bruxelles. Délai de production : 4 semaines.',
+    desc: 'Vos boîtes sont imprimées et préparées localement dans notre atelier bruxellois.',
   },
   {
     num: '04',
