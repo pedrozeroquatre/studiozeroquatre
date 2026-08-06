@@ -9,8 +9,11 @@ const slides = [
   {
     title: 'Volta Supper Club',
     text: "Une identité packaging pensée pour prolonger l'expérience Volta, jusqu'au prénom de chaque client.",
-    image: '/images/volta/volta-01.jpg',
+    image: '/images/volta/volta-new.jpeg',
     alt: 'Boîte pizza Volta Supper Club',
+    // packshot sur fond blanc : on recadre dans la marge haute pour agrandir la boîte
+    position: 'center 69%',
+    light: true,
   },
   {
     title: 'La Bottega della Pizza',
@@ -70,12 +73,16 @@ export default function VoltaSection() {
                   </div>
 
                   {/* Image */}
-                  <div className="relative overflow-hidden bg-[var(--border)] aspect-[4/3] min-w-0">
+                  <div
+                    className={`relative overflow-hidden aspect-[4/3] min-w-0 ${
+                      slide.light ? 'bg-[var(--bg)]' : 'bg-[var(--border)]'
+                    }`}
+                  >
                     <Image
                       src={slide.image}
                       alt={slide.alt}
                       fill
-                      style={{ objectFit: 'cover' }}
+                      style={{ objectFit: 'cover', objectPosition: slide.position || 'center' }}
                       sizes="(max-width: 768px) 100vw, 50vw"
                     />
                   </div>

@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 import pizzaBoxBlank from '@/assets/pizza_box_blank_new.jpeg'
 import pizzaBoxDesign from '@/assets/pizza_box_design_new.jpeg'
-import burgerBoxBlank from '@/assets/burger_box_blank.jpeg'
-import burgerBoxDesign from '@/assets/burger_box_design.jpeg'
+import burgerBoxBlank from '@/assets/burger_blank_new.jpeg'
+import burgerBoxDesign from '@/assets/burger_design_new.jpeg'
 import sacKraftBlank from '@/assets/sac_kraft_blank.jpeg'
 import sacKraftDesign from '@/assets/sac_kraft_design.jpeg'
 import sacKraftSimpleBlank from '@/assets/sac_kraft_no_handle_blank.jpeg'
@@ -18,7 +18,7 @@ const PRODUCTS = [
     images: [pizzaBoxBlank, pizzaBoxDesign],
     alt: 'Boîte pizza personnalisable',
     name: 'Boîte pizza',
-    description: 'Disponible en plusieurs formats, entièrement personnalisable selon votre identité.',
+    description: 'Pensée pour préserver la chaleur tout en facilitant le transport et l’empilage.',
     dimensions: ['26 × 26 × 4 cm', '30 × 30 × 4 cm', '33 × 33 × 4 cm', '36 × 36 × 4 cm'],
   },
   {
@@ -26,7 +26,7 @@ const PRODUCTS = [
     images: [burgerBoxBlank, burgerBoxDesign],
     alt: 'Boîte burger personnalisable',
     name: 'Boîte burger',
-    description: 'Conçue pour valoriser votre marque, du design à l’impression.',
+    description: 'Une structure stable et pratique, adaptée aux burgers généreux et aux menus à emporter.',
     dimensions: ['10 × 10 × 8 cm', '12 × 12 × 10 cm', '15 × 15 × 12 cm'],
   },
   {
@@ -34,7 +34,7 @@ const PRODUCTS = [
     images: [sacKraftBlank, sacKraftDesign],
     alt: 'Sac à poignées torsadées personnalisable',
     name: 'Sac à poignées',
-    description: 'Disponible en blanc ou kraft, avec poignées plates ou torsadées.',
+    description: 'Idéal pour les commandes plus volumineuses, avec un transport confortable et une belle présence en main.',
     dimensions: ['S — 22 × 12 × 22 cm', 'M — 28 × 16 × 28 cm', 'L — 35 × 20 × 32 cm'],
   },
   {
@@ -42,7 +42,7 @@ const PRODUCTS = [
     images: [sacKraftSimpleBlank, sacKraftSimpleDesign],
     alt: 'Sac kraft simple personnalisable',
     name: 'Sac kraft simple',
-    description: 'Une solution minimaliste, personnalisable dans tous les formats.',
+    description: 'Une solution légère et économique pour les petites commandes à emporter.',
     dimensions: ['S — 14 × 8 × 26 cm', 'M — 18 × 10 × 30 cm', 'L — 24 × 12 × 38 cm'],
   },
 ]
