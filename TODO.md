@@ -1,6 +1,6 @@
 # À faire — Studio Zeroquatre
 
-État au 21/07/2026. Le site est complet et poussé sur `main` (vitrine, portail, paiement Stripe, emails). **Les emails des formulaires fonctionnent en prod. Le flux Stripe est validé de bout en bout en mode test.** Il reste surtout le **passage de Stripe en live**, le **déploiement** et la **persistance des commandes**.
+État au 06/08/2026. Le site est **en ligne sur Vercel** (`studiozeroquatre.com` → `www`, auto-deploy depuis `main`). Vitrine, portail, emails : opérationnels. **Le flux Stripe est validé de bout en bout en mode test uniquement.** Il reste le **passage de Stripe en live**, la **persistance des commandes** et les **pages légales**.
 
 ---
 
@@ -14,8 +14,8 @@ Le code est prêt ([checkout](app/api/portal/checkout/route.js), [webhook](app/a
 
 **Passage en LIVE (sur le site déployé) — à faire**
 - [ ] Stripe en **Live mode** → récupérer la clé `sk_live_…`
-- [ ] Créer un **webhook live** dans le dashboard : URL `https://DOMAINE/api/stripe/webhook`, event `checkout.session.completed` → récupérer son `whsec_…` live
-- [ ] Poser `STRIPE_SECRET_KEY` (live) + `STRIPE_WEBHOOK_SECRET` (live) **sur l'hébergeur**, puis redéployer
+- [ ] Créer un **webhook live** dans le dashboard : URL `https://www.studiozeroquatre.com/api/stripe/webhook`, event `checkout.session.completed` → récupérer son `whsec_…` live
+- [ ] Poser `STRIPE_SECRET_KEY` (live) + `STRIPE_WEBHOOK_SECRET` (live) **sur Vercel**, puis redéployer
 - [ ] Faire un vrai petit paiement de validation, puis le rembourser depuis Stripe
 - [ ] Laisser `.env.local` inchangé (clés test + secret CLI = OK pour le dev local)
 
@@ -29,12 +29,26 @@ Le code est prêt ([checkout](app/api/portal/checkout/route.js), [webhook](app/a
 - [x] Reporter `SMTP_USER` + `SMTP_PASSWORD` dans les variables d'env de l'hébergeur
 
 ## 3. Persistance des commandes 📦
-Aujourd'hui une commande payée déclenche seulement un **email**. Objectif : email + Google Sheets + Supabase. Tout doit se brancher dans le **webhook Stripe** (seul point où le paiement est confirmé), pas dans `orders/route.js`.
+**Google Sheets abandonné** (06/08) : une seule base, Supabase, partagée entre ce site (qui écrit) et le futur dashboard admin (qui lit).
 
-- [x] Email de confirmation (déjà fait dans le webhook)
-- [ ] **Google Sheets** : `npm install googleapis`, créer `lib/sheets.js` (`appendRow`), appel dans le webhook. Env : `GOOGLE_SERVICE_ACCOUNT_KEY`, `SPREADSHEET_ID`. Stub de référence dans [orders/route.js:41](app/api/orders/route.js#L41)
-- [ ] **Supabase** : créer `lib/supabase.js`, table `orders`, insertion dans le webhook. Env déjà réservées (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
-- [ ] **Migrer « Refaire ma dernière commande » vers Supabase** : aujourd'hui l'historique est en **localStorage** ([lib/lastOrder.js](lib/lastOrder.js)), donc par appareil. Quand le client fournira l'historique réel, remplacer `getLastOrder`/`saveLastOrder` par des lectures/écritures serveur (alimentées par le webhook). L'UI du Dashboard ne dépend que de ces 2 fonctions.
+**Code — ✅ FAIT, dormant tant que les clés ne sont pas posées**
+- [x] Email de confirmation (webhook)
+- [x] Schéma de la table `orders` → [supabase/schema.sql](supabase/schema.sql)
+- [x] [lib/supabase.js](lib/supabase.js) (client service-role) + [lib/orders-store.js](lib/orders-store.js) (écriture/lecture)
+- [x] Écriture dans le **webhook Stripe**, idempotente (index unique sur `stripe_session_id` — Stripe rejoue ses events)
+- [x] Quantités structurées passées en metadata du checkout (`qty`), pour reconstruire les lignes et figer les prix
+- [x] [/api/portal/orders](app/api/portal/orders/route.js) — historique authentifié **par le code d'accès**, pas par `clientId` (devinable)
+- [x] Portail : section « Vos commandes » + « Refaire ma dernière commande » alimentés par le serveur, repli localStorage si Supabase absent
+
+**À faire — nécessite tes accès**
+- [ ] Créer le projet Supabase, exécuter [supabase/schema.sql](supabase/schema.sql)
+- [ ] Poser `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` dans `.env.local` **et** sur Vercel
+- [ ] Importer l'historique du **fichier Numbers** (`source = 'import'`) — format à voir quand le fichier arrive
+- [ ] Une fois l'historique en base et vérifié : supprimer [lib/lastOrder.js](lib/lastOrder.js) et son repli dans le Dashboard
+
+**Dashboard admin (autre site)**
+- [ ] Lui donner sa **propre auth** Supabase — ne pas partager la service role key de ce projet ; policy RLS de lecture prête (commentée) en fin de `schema.sql`
+- [ ] Garder un seul écrivain (le webhook) pour éviter deux sources divergentes
 
 ## 3bis. Espace client — commande rapide ✅ FAIT
 Ergonomie pour recommander vite (formats déjà visibles, quantités en quelques clics).
@@ -44,14 +58,14 @@ Ergonomie pour recommander vite (formats déjà visibles, quantités en quelques
 - [x] **Puces rapides par ligne** (500/1000/2000) sur chaque format
 - [x] **« Recommander »** : bandeau qui recharge la dernière commande en un clic (localStorage pour l'instant, cf. §3)
 
-## 4. Déploiement 🚀
-Tout est commité et poussé sur `main` (emails, devis 4 produits, Stripe, produits best-sellers, menu). Le build de prod passe.
+## 4. Déploiement ✅ FAIT
+Déployé sur **Vercel**, domaine `studiozeroquatre.com` (redirige vers `www`). Chaque push sur `main` redéploie automatiquement — vérifié le 06/08 : un push est en ligne en quelques minutes.
 
 - [x] Commiter + pousser l'intégration Stripe, les emails et les 4 produits sur `main`
-- [ ] Déployer (Vercel recommandé)
+- [x] Déployer (Vercel)
 - [x] Variables SMTP sur l'hébergeur (`SMTP_USER`, `SMTP_PASSWORD`)
-- [ ] Ajouter le reste des variables d'env sur l'hébergeur : clés Stripe (§1), puis Google/Supabase (§3)
-- [ ] Repointer l'URL du webhook Stripe vers le domaine de prod
+- [ ] Ajouter le reste des variables d'env sur Vercel : clés Stripe live (§1), puis Google/Supabase (§3)
+- [ ] Repointer l'URL du webhook Stripe vers `https://www.studiozeroquatre.com/api/stripe/webhook`
 - [ ] (optionnel) Brancher les assets non utilisés si besoin : `LOGOGO.svg`, `product_53→56`
 
 ## 5. Légal (à faire à la fin) ⚖️

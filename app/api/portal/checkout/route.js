@@ -24,6 +24,7 @@ export async function POST(request) {
   // browser; prices never do.
   const lineItems = []
   const summary = []
+  const ordered = {}
   let total = 0
 
   for (const p of client.products) {
@@ -44,6 +45,7 @@ export async function POST(request) {
       },
     })
     summary.push(`${p.fmt} × ${qty}`)
+    ordered[p.id] = qty
     total += amount
   }
 
@@ -67,6 +69,12 @@ export async function POST(request) {
       lines: summary.join(', ').slice(0, 490),
       delivery: formatDelivery(delivery).slice(0, 490),
       note: (typeof note === 'string' ? note : '').slice(0, 490),
+      // Quantités structurées ({ productId: qty }) : le webhook s'en sert pour
+      // reconstruire les lignes et les prix depuis lib/clients.js. `lines` est
+      // du texte pour l'email, illisible pour la base.
+      qty: JSON.stringify(ordered).slice(0, 490),
+      deliveryDate: typeof delivery?.date === 'string' ? delivery.date.slice(0, 10) : '',
+      deliveryTime: typeof delivery?.time === 'string' ? delivery.time.slice(0, 5) : '',
     },
   })
 

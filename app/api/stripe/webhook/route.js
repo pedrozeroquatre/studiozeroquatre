@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { sendMail, renderEmail } from '@/lib/mailer'
 import { getStripe } from '@/lib/stripe'
+import { findClientById } from '@/lib/clients'
+import { buildItems, recordPaidOrder } from '@/lib/orders-store'
 
 // Stripe needs the raw request body to verify the signature — never parse it as
 // JSON before verifying.
@@ -20,6 +22,15 @@ export async function POST(request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const m = session.metadata || {}
+
+    // Les paiements de l'espace client (/espace) ne passent pas par ici : ils
+    // sont écrits en base par l'Edge Function Supabase
+    // `enregistrer-commande-payee`, qui crée la commande ET la livraison. Ce
+    // webhook-ci ne connaît que l'ancien portail (/portal) et ses métadonnées ;
+    // sans ce garde-fou, il enverrait un email de commande vide.
+    if (m.source === 'espace') {
+      return NextResponse.json({ received: true, ignored: 'espace' })
+    }
     const total = ((session.amount_total ?? 0) / 100).toFixed(2).replace('.', ',')
 
     const lines = [
@@ -37,6 +48,36 @@ export async function POST(request) {
     ]
       .filter((l) => l !== null)
       .join('\n')
+
+    // Persistance d'abord : c'est la trace durable de la commande, l'email n'en
+    // est qu'une notification. Les deux échouent indépendamment.
+    try {
+      const client = findClientById(m.clientId)
+      let quantities = {}
+      try {
+        quantities = JSON.parse(m.qty || '{}')
+      } catch {
+        // Métadonnée absente ou corrompue (commande créée avant cette version) :
+        // on enregistre quand même la commande, sans le détail des lignes.
+      }
+
+      await recordPaidOrder({
+        ref: m.ref || session.id,
+        clientId: m.clientId || 'inconnu',
+        clientName: m.clientName || 'Client',
+        items: client ? buildItems(client.products, quantities) : [],
+        totalCents: session.amount_total ?? 0,
+        currency: session.currency || 'eur',
+        deliveryDate: m.deliveryDate || null,
+        deliveryTime: m.deliveryTime || null,
+        note: m.note || null,
+        stripeSessionId: session.id,
+      })
+    } catch (err) {
+      // Ne pas 500 vers Stripe : le paiement est encaissé, un rejeu ne le
+      // changerait pas. L'email ci-dessous reste le filet de sécurité.
+      console.error('[stripe webhook] enregistrement Supabase échoué', err)
+    }
 
     try {
       await sendMail({

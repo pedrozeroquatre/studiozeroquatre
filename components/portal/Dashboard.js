@@ -15,6 +15,13 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// '2026-08-06T09:12:00Z' → '06/08/2026'
+function formatDate(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 // Circular "redo" arrow — used on the reorder button.
 function ReloadIcon() {
   return (
@@ -25,15 +32,48 @@ function ReloadIcon() {
   )
 }
 
-export default function Dashboard({ client, onLogout }) {
+export default function Dashboard({ client, code, onLogout }) {
   const [quantities, setQuantities] = useState({})
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [lastOrder, setLastOrder] = useState(null)
+  const [history, setHistory] = useState([])
   const [delivery, setDelivery] = useState({ date: '', time: '' })
 
-  useEffect(() => { setLastOrder(getLastOrder(client.id)) }, [client.id])
+  // L'historique vient du serveur (Supabase), donc suit le client d'un appareil
+  // à l'autre. Tant que Supabase n'est pas configuré la réponse est vide, et on
+  // retombe sur la dernière commande stockée localement.
+  useEffect(() => {
+    let cancelled = false
+    setLastOrder(getLastOrder(client.id))
+
+    if (!code) return
+    ;(async () => {
+      try {
+        const res = await fetch('/api/portal/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        })
+        const data = await res.json()
+        if (cancelled || !Array.isArray(data.orders) || data.orders.length === 0) return
+
+        setHistory(data.orders)
+        const items = data.orders[0].items
+        if (Array.isArray(items) && items.length > 0) {
+          setLastOrder({
+            quantities: Object.fromEntries(items.map(i => [i.id, i.qty])),
+            at: new Date(data.orders[0].created_at).getTime(),
+          })
+        }
+      } catch {
+        /* historique indisponible — le repli localStorage reste en place */
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [client.id, code])
 
   const lines = client.products
     .map(p => ({ ...p, qty: parseInt(quantities[p.id] || 0) }))
@@ -271,6 +311,46 @@ export default function Dashboard({ client, onLogout }) {
         >
           {submitting ? 'Redirection…' : `Payer ${total.toFixed(2).replace('.', ',')} €`}
         </button>
+
+        {/* Historique — alimenté par Supabase, vide tant qu'aucune commande payée */}
+        {history.length > 0 && (
+          <div style={{ marginTop: 56 }}>
+            <div style={S.label}>Vos commandes</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Date', 'Référence', 'Détail', 'Total'].map((h, i) => (
+                      <th key={h} style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#444', textAlign: i === 3 ? 'right' : 'left', padding: '8px 12px', borderBottom: '1px solid #2a2a2a', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map(o => (
+                    <tr key={o.ref + o.created_at} style={{ borderBottom: '1px solid #1e1e1e' }}>
+                      <td style={{ padding: 12, fontSize: 12, color: '#888', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                        {formatDate(o.created_at)}
+                      </td>
+                      <td style={{ padding: 12, fontSize: 11, color: '#666', letterSpacing: 1, whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                        {o.ref}
+                      </td>
+                      <td style={{ padding: 12, fontSize: 12, color: '#f0f0f0', verticalAlign: 'top' }}>
+                        {Array.isArray(o.items) && o.items.length > 0
+                          ? o.items.map(i => `${i.fmt} × ${Number(i.qty).toLocaleString('fr')}`).join('   ·   ')
+                          : '—'}
+                      </td>
+                      <td style={{ padding: 12, fontSize: 13, color: '#fff', fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                        {((o.total_cents ?? 0) / 100).toFixed(2).replace('.', ',')} €
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

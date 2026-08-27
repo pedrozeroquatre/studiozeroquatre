@@ -7,6 +7,9 @@ import PortalNav from '@/components/portal/PortalNav'
 export default function PortalPage() {
   const [view, setView] = useState('login')
   const [client, setClient] = useState(null)
+  // Conservé en mémoire le temps de la session : c'est lui qui authentifie la
+  // lecture de l'historique (/api/portal/orders), pas le clientId.
+  const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [checkout, setCheckout] = useState(null) // { status, ref } after Stripe return
 
@@ -33,6 +36,7 @@ export default function PortalPage() {
       const data = await res.json()
       if (res.ok) {
         setClient(data)
+        setCode(String(code).trim().toUpperCase())
         setView('dashboard')
       } else {
         setError(data.error ?? 'Code invalide. Vérifiez et réessayez.')
@@ -44,6 +48,7 @@ export default function PortalPage() {
 
   function handleLogout() {
     setClient(null)
+    setCode('')
     setView('login')
     setError('')
   }
@@ -78,7 +83,7 @@ export default function PortalPage() {
   }
 
   if (view === 'dashboard' && client) {
-    return <Dashboard client={client} onLogout={handleLogout} />
+    return <Dashboard client={client} code={code} onLogout={handleLogout} />
   }
 
   return (

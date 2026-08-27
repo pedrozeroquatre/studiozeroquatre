@@ -65,11 +65,5 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: "L'envoi a échoué. Veuillez réessayer." }, { status: 502 })
   }
 
-  // GOOGLE SHEETS HOOK [orders]:
-  // 1. npm install googleapis
-  // 2. Add env vars: GOOGLE_SERVICE_ACCOUNT_KEY (JSON string), SPREADSHEET_ID, ORDERS_SHEET_NAME
-  // 3. import { appendRow } from '@/lib/sheets'
-  //    await appendRow(process.env.ORDERS_SHEET_NAME, [ref, new Date().toISOString(), restaurant, name, email, phone, items.map(describe).join(' | '), boxType, notes])
-
   return NextResponse.json({ success: true, ref })
 }
