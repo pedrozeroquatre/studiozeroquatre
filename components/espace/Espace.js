@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 import Commander from './Commander'
 import {
   formatDate, formatDateLongue, formatNombre, formatEuros, joursRestants,
-  grouperPar, texteProduits, BOITES_PAR_PAQUET, FORMATS_STUDIO,
+  grouperPar, texteProduits, FORMATS_STUDIO,
 } from '@/lib/espace-data'
 import {
-  Ecran, C, S, SYNE, Label, Section, Tableau, TD, Statut, Pastille,
+  Ecran, C, S, SYNE, Label, Section, Tableau, TD, Statut,
   BoutonPrincipal, BoutonFantome, Vide,
 } from './ui'
 
@@ -21,64 +21,11 @@ function nommer(valeur) {
   return valeur || '—'
 }
 
-// Attention aux unités, elles diffèrent : `paquets` compte des paquets de 50,
-// `conso_mensuelle` compte des BOÎTES par mois. C'est le calcul que fait déjà
-// l'OS (`stockEtat()` : `const stock = paquets * 50; stock < conso` → « bas »),
-// et les deux applications doivent voir le même stock au même moment.
-function autonomieMois(paquets, conso) {
-  const boites = Number(paquets) * BOITES_PAR_PAQUET
-  const c = Number(conso)
-  if (!Number.isFinite(boites) || !Number.isFinite(c) || c <= 0) return null
-  return boites / c
-}
-
 function CarteBloc({ titre, children, style }) {
   return (
     <div style={{ ...S.carte, display: 'flex', flexDirection: 'column', ...style }}>
       <Label>{titre}</Label>
       {children}
-    </div>
-  )
-}
-
-// ── Stock ───────────────────────────────────────────────────────────────────
-function LigneStock({ stock }) {
-  const paquets = Number(stock.paquets) || 0
-  const boites = paquets * BOITES_PAR_PAQUET
-  const mois = autonomieMois(stock.paquets, stock.conso_mensuelle)
-  // Mêmes seuils que l'OS, pour que le studio et le restaurateur lisent la
-  // même chose : rupture à zéro, « bas » sous un mois de consommation.
-  const rupture = boites <= 0
-  const bas = rupture || (mois !== null && mois < 1)
-
-  // Jauge sur 3 mois : au-delà, le stock est confortable et la barre est pleine.
-  const remplissage = mois === null ? 0 : Math.max(0.02, Math.min(mois / 3, 1))
-
-  return (
-    <div style={{ padding: '14px 0', borderTop: `1px solid ${C.trait}` }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <Pastille>{stock.reference}</Pastille>
-        <div style={{ fontFamily: SYNE, fontSize: 26, fontWeight: 800, color: C.vif, lineHeight: 1 }}>
-          {formatNombre(paquets)}
-          <span style={{ fontFamily: 'inherit', fontSize: 12, fontWeight: 400, color: C.doux, marginLeft: 6 }}>
-            paquets
-          </span>
-        </div>
-      </div>
-
-      <div style={{ height: 4, background: '#181818', borderRadius: 2, margin: '10px 0 8px', overflow: 'hidden' }}>
-        <div style={{ width: `${remplissage * 100}%`, height: '100%', background: bas ? C.accent : C.texte, transition: 'width 0.3s' }} />
-      </div>
-
-      <div style={{ fontSize: 11, color: bas ? C.accent : C.gris, lineHeight: 1.6 }}>
-        {rupture ? <strong>en rupture</strong> : `≈ ${formatNombre(boites)} boîtes`}
-        {!rupture && mois !== null && (
-          <> · {mois < 1
-            ? <strong>moins d’un mois de stock</strong>
-            : `environ ${mois.toLocaleString('fr-BE', { maximumFractionDigits: 1 })} mois au rythme actuel`}
-          </>
-        )}
-      </div>
     </div>
   )
 }
@@ -170,6 +117,8 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
   const compteGroupe = !identite.etablissementId && etablissements.length > 1
   const etab = compteGroupe ? etablissements.find(e => e.id === etabActif) || null : null
 
+  // Le stock n'est plus affiché, mais il reste la source des formats que ce
+  // restaurant commande réellement (portail_mes_stocks.reference).
   const stocksVus = useMemo(() => stocks.filter(s => correspond(s.etablissement, etab)), [stocks, etab])
   const livraisonsVues = useMemo(() => livraisons.filter(l => correspond(l.etablissement, etab)), [livraisons, etab])
   const commandesVues = useMemo(() => commandes.filter(c => correspond(c.etablissement, etab)), [commandes, etab])
@@ -273,14 +222,8 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
           </div>
         )}
 
-        {/* Coup d'œil : le stock, la prochaine livraison, recommander */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 16 }}>
-          <CarteBloc titre="Votre stock">
-            {stocksVus.length === 0
-              ? <Vide>Aucun stock suivi pour le moment.</Vide>
-              : stocksVus.map(s => <LigneStock key={s.id} stock={s} />)}
-          </CarteBloc>
-
+        {/* Coup d'œil : la prochaine livraison, puis recommander */}
+        <div style={{ marginBottom: 16 }}>
           <CarteBloc titre="Prochaine livraison">
             <ProchaineLivraison
               livraisons={livraisonsVues}

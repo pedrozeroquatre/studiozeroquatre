@@ -66,8 +66,10 @@ via `auth.updateUser()`, then loads their space. Expired links (24 h) arrive as
 passe oublié" never reveals whether an address exists.
 
 Page order is deliberate and driven by what a pizzeria owner needs at a glance:
-remaining stock, next delivery, reorder button — then the order form, then history
-lower down.
+next delivery, then the reorder button — then the order form, then history lower
+down. `portail_mes_stocks` is still read, but only to know which formats this
+restaurant actually orders; the stock figures themselves are deliberately not
+shown.
 
 **Payment is not wired to orders**: no view exposes a tariff and
 `portail_mes_commandes` has no payment-status column, so `/espace` takes orders

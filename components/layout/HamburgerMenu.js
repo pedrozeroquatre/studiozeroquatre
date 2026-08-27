@@ -76,7 +76,7 @@ export default function HamburgerMenu({ open, onClose, lang, onToggleLang }) {
             Contact
           </Link>
           <Link
-            href="/portal"
+            href="/espace"
             onClick={onClose}
             className="font-mono text-sm text-text hover:text-text2 transition-colors"
             data-fr="Espace clients"
