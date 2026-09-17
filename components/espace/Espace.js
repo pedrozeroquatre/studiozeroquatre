@@ -5,6 +5,8 @@ import {
   formatDate, formatDateLongue, formatNombre, formatEuros, joursRestants,
   grouperPar, texteProduits, FORMATS_STUDIO,
 } from '@/lib/espace-data'
+import { TVA_TAUX, avecTva } from '@/lib/tva'
+import { formatCreneau } from '@/lib/creneaux'
 import {
   Ecran, C, S, SYNE, Label, Section, Tableau, TD, Statut,
   BoutonPrincipal, BoutonFantome, Vide,
@@ -91,6 +93,7 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
   const {
     profil, etablissements, livraisons, lignesLivraison,
     stocks, documents, commandes, lignesCommande, tarif, joursComplets,
+    creneauxPris,
   } = donnees
 
   const [etabActif, setEtabActif] = useState(null) // null = tous
@@ -259,6 +262,7 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
             numeroConfirme={idConfirme ? (commandes.find(c => c.id === idConfirme)?.numero ?? null) : null}
             tarif={tarif}
             joursComplets={joursComplets}
+            creneauxPris={creneauxPris}
             onCommandePassee={commandePassee}
           />
         </Section>
@@ -299,13 +303,18 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
           ) : (
             <Tableau
               colonnes={[
-                { titre: 'Date' }, { titre: 'Contenu' }, { titre: 'TVA' },
-                { titre: 'Montant HTVA', aligne: 'right' }, { titre: 'État', aligne: 'right' },
+                { titre: 'Date' }, { titre: 'Contenu' },
+                { titre: 'Montant TTC', aligne: 'right' }, { titre: 'État', aligne: 'right' },
               ]}
             >
               {livraisonsVues.map(l => (
                 <tr key={l.id}>
-                  <td style={{ ...TD, color: C.doux, whiteSpace: 'nowrap' }}>{formatDate(l.date_livraison)}</td>
+                  <td style={{ ...TD, color: C.doux, whiteSpace: 'nowrap' }}>
+                    {formatDate(l.date_livraison)}
+                    <div style={{ fontSize: 11, color: C.pale, marginTop: 3 }}>
+                      {formatCreneau(l.heure_livraison)}
+                    </div>
+                  </td>
                   <td style={TD}>
                     {(parLivraison.get(l.id) || []).map(x => `${x.taille} × ${formatNombre(x.quantite)}`).join('   ·   ')
                       || texteProduits(l.produits) || '—'}
@@ -313,8 +322,14 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
                       <div style={{ fontSize: 11, color: C.pale, marginTop: 4 }}>{nommer(l.etablissement)}</div>
                     )}
                   </td>
-                  <td style={{ ...TD, color: C.gris, whiteSpace: 'nowrap' }}>{l.tva_taux == null ? '—' : `${l.tva_taux} %`}</td>
-                  <td style={{ ...TD, color: C.vif, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatEuros(l.prix_htva)}</td>
+                  {/* Le montant lisible est celui qui a été payé, TVA comprise ;
+                      le HTVA de la facture reste dessous, en petit. */}
+                  <td style={{ ...TD, color: C.vif, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {formatEuros(avecTva(l.prix_htva, l.tva_taux))}
+                    <div style={{ fontSize: 11, color: C.pale, marginTop: 3 }}>
+                      {formatEuros(l.prix_htva)} HTVA · TVA {l.tva_taux == null ? TVA_TAUX : l.tva_taux} %
+                    </div>
+                  </td>
                   <td style={{ ...TD, textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <Statut valeur={l.livre ? 'Livrée' : 'À livrer'} ton={l.livre ? 'ok' : 'cours'} />
                     {' '}

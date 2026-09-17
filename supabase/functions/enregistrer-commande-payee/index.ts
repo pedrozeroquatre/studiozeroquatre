@@ -105,9 +105,19 @@ Deno.serve(async (req) => {
     p_lignes: lignes,
     // Le montant fait foi côté Stripe : on reprend ce qui a réellement été
     // encaissé, pas ce que le navigateur avait annoncé.
-    p_montant: (session.amount_total ?? 0) / 100,
+    //
+    // ⚠ `amount_subtotal`, pas `amount_total` : les lignes sont HTVA et la
+    // TVA 21 % est ajoutée par-dessus par Stripe. `livraisons.prix_htva` et
+    // `commandes_clients.montant_htva` attendent l'assiette HTVA — prendre le
+    // total ferait entrer la TVA dans le chiffre d'affaires de l'OS.
+    // Le repli sur `amount_total` ne sert qu'aux sessions d'avant la TVA, où
+    // les deux montants étaient égaux.
+    p_montant: (session.amount_subtotal ?? session.amount_total ?? 0) / 100,
     p_note: m.note ?? null,
     p_session: session.id,
+    // Vide = « dans la journée ». La colonne reste alors à NULL, ce qui est le
+    // cas normal : choisir une heure est facultatif côté client.
+    p_heure: m.heure_livraison ? m.heure_livraison : null,
   });
 
   if (error) {

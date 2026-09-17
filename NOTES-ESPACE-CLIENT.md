@@ -30,7 +30,16 @@ Ce qu'ils ajoutent, et rien d'autre :
 | `commandes_clients` | `paiement_recu`, `paye_le`, `montant_htva`, `stripe_session_id`, `livraison_id` | il n'existait aucun champ de paiement |
 | `portail_mes_commandes` | étendue de 2 colonnes | le client voit sa commande payée. `stripe_session_id` reste invisible |
 | `portail_jours_complets` | vue, des dates | griser les jours pleins (4 livraisons) |
+| `livraisons` | `heure_livraison` | l'heure demandée par le client. NULL = dans la journée |
+| `portail_creneaux_pris` | vue, date + heure | barrer les créneaux déjà réservés |
+| `portail_mes_livraisons` | étendue d'1 colonne | le client relit l'heure qu'il a réservée |
 | `enregistrer_commande_payee()` | fonction `security definer` | écrit commande + livraison en une transaction |
+
+⚠ Si tu as déjà passé `paiement-et-capacite.sql` avant les créneaux horaires,
+**repasse-le en entier** : il est réexécutable, et il remplace
+`enregistrer_commande_payee()` par une version qui prend l'heure (l'ancienne est
+retirée d'abord, sinon Postgres garderait les deux et l'appel deviendrait
+ambigu).
 
 ⚠ Le droit d'exécution de `enregistrer_commande_payee()` est **retiré à
 `authenticated`**. Si un client pouvait l'appeler, il se marquerait payé sans
@@ -119,7 +128,9 @@ demande (le client la voit dans « Vos commandes »), la livraison la place dans
 ta tournée. Les deux dans la même transaction : jamais l'une sans l'autre.
 
 **Le montant qui fait foi est celui de Stripe**, pas celui annoncé par le
-navigateur. La fonction enregistre `session.amount_total`.
+navigateur. La fonction enregistre `session.amount_subtotal` — le HTVA, parce
+que c'est ce qu'attendent `livraisons.prix_htva` et
+`commandes_clients.montant_htva` (voir « La TVA » plus bas).
 
 **Écrire dans `livraisons` était dans ta liste « à ne jamais faire ».** Tu as
 tranché l'inverse, et la règle protégeait surtout contre une écriture *par le
@@ -170,6 +181,70 @@ Deux remarques :
 
 Un seul prix par client, tous formats et tous restaurants confondus : c'est le
 modèle, et il correspond à ce que tu factures.
+
+### L'heure de livraison
+
+Choisir une heure est **facultatif**, et doit le rester : sans choix, la
+livraison passe dans la journée et `heure_livraison` reste à NULL. C'est le cas
+normal, pas une donnée manquante.
+
+Quand le client veut une heure, il choisit dans une liste fermée : créneaux
+d'une heure, de 8 h à 18 h (`lib/creneaux.js`). Pas de champ horaire libre —
+10h15 et 10h20 passeraient tous les deux le contrôle « créneau libre » alors
+que tu ne peux pas faire les deux.
+
+Un créneau réservé est fermé **pour tout le monde**, tous clients confondus. Le
+client voit le créneau barré sans jamais savoir à qui il est : la vue
+`portail_creneaux_pris` ne rend qu'une date et une heure.
+
+Trois contrôles, du plus lâche au plus sûr :
+
+1. l'espace grise les créneaux pris — confort, rien de plus ;
+2. la route de paiement revérifie avant d'ouvrir Stripe, et refuse en 409 ;
+3. la fonction SQL regarde une dernière fois, à l'écriture.
+
+Le troisième ne refuse pas : le client a payé, et lever une exception ferait
+rejouer Stripe en boucle. Si deux paiements tombent sur le même créneau à
+quelques secondes d'écart, la livraison est créée avec l'heure demandée **et une
+note interne** « ⚠ Créneau déjà pris — à arbitrer ». Tu la vois dans l'OS, tu
+rappelles l'un des deux.
+
+Côté OS, l'heure se lit dans la liste des livraisons et dans le calendrier (les
+journées y sont triées par heure), et se règle dans le détail d'une livraison —
+même grille de créneaux, pour qu'une heure posée à la main ferme vraiment le
+créneau côté espace.
+
+⚠ L'Edge Function passe désormais `p_heure` : **redéploie-la** après le SQL.
+`p_heure` a une valeur par défaut, donc l'ancienne version continue d'enregistrer
+les commandes entre les deux — simplement sans jamais retenir d'heure.
+
+### La TVA
+
+Le tarif en base (`clients.prix`, `etablissements.prix`) est HTVA, et il le
+reste : c'est l'assiette de la facture, et tout l'OS calcule dessus.
+
+Mais le restaurateur ne raisonne pas en HTVA. L'espace **affiche donc du TTC**
+partout — prix à la boîte, sous-totaux, total, bouton de paiement, montant des
+livraisons passées — avec le HTVA écrit à côté, en petit. Le taux vit dans un
+seul endroit, `lib/tva.js`, et vaut 21 % (le défaut de `livraisons.tva_taux`).
+
+Stripe ne reçoit pas des lignes TTC : il reçoit les lignes HTVA et un objet
+**TaxRate** à 21 %, qui ajoute la TVA par-dessus. Le client voit ainsi le détail
+« sous-total · TVA 21 % · total » sur la page de paiement et sur son reçu, et
+la base continue de recevoir du HTVA (`amount_subtotal`).
+
+Le TaxRate est cherché dans ton compte Stripe au premier paiement, et créé s'il
+n'existe pas. Si tu préfères en imposer un précis (par exemple un que tu as déjà
+créé à la main), pose la variable d'environnement `STRIPE_TAX_RATE_TVA` avec son
+id `txr_…`.
+
+⚠ Si l'Edge Function est **déjà déployée**, il faut la redéployer : elle lisait
+`amount_total`, qui contient désormais la TVA. Sans ça, 21 % de TVA entreraient
+dans `prix_htva` et fausseraient ton chiffre d'affaires.
+
+⚠ Un client soumis à un autre taux (autofacturation, intracommunautaire) n'est
+pas prévu : le taux est le même pour tout le monde. Dis-le-moi si un cas se
+présente.
 
 ### Les brouillons sont visibles par le client
 

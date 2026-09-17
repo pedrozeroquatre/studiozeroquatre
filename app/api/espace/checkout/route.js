@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
+import { TVA_TAUX } from '@/lib/tva'
+import { creneauPasse, estCreneau, normaliserHeure } from '@/lib/creneaux'
 
 // Création de la session de paiement de l'espace client.
 //
 // Le navigateur envoie des quantités, une date et son jeton de session — jamais
 // un prix. Cette route relit le tarif depuis la base et recalcule le montant.
 // **Les prix ne voyagent pas depuis le navigateur — garder ça comme ça.**
+//
+// Le tarif de la base est HTVA ; le client, lui, paie le TTC. Les lignes
+// envoyées à Stripe restent donc HTVA et la TVA est posée par-dessus (voir
+// `tauxTvaStripe` plus bas) : `amount_subtotal` reste l'assiette HTVA que la
+// base enregistre, `amount_total` est ce qui est débité.
 //
 // Elle travaille avec le jeton du client, pas avec une clé de service : chaque
 // requête part sous son identité, donc RLS s'applique exactement comme dans son
@@ -15,6 +22,47 @@ import { getStripe } from '@/lib/stripe'
 //
 // L'écriture en base, elle, n'a pas lieu ici : c'est l'Edge Function
 // `enregistrer-commande-payee` qui la fait, une fois Stripe confirmé.
+
+// — La TVA —
+//
+// Les lignes envoyées à Stripe restent HTVA : c'est ce que la base enregistre
+// (`livraisons.prix_htva`) et ce sur quoi l'OS calcule tout. La TVA est ajoutée
+// par-dessus par Stripe, via un objet TaxRate — le client voit donc « TVA 21 % »
+// détaillée sur la page de paiement et sur son reçu, et paie bien le TTC.
+//
+// Le TaxRate est cherché avant d'être créé, et mémorisé : une instance chaude
+// ne rappelle pas Stripe. Si deux instances froides en créent deux identiques,
+// c'est sans conséquence.
+//
+// Il n'y a volontairement PAS de repli sans TVA : facturer HTVA laisserait le
+// studio devoir 21 % de sa poche. Mieux vaut que le paiement refuse de s'ouvrir.
+let idTauxTva = null
+
+async function tauxTvaStripe(stripe) {
+  if (idTauxTva) return idTauxTva
+
+  if (process.env.STRIPE_TAX_RATE_TVA) {
+    idTauxTva = process.env.STRIPE_TAX_RATE_TVA
+    return idTauxTva
+  }
+
+  const { data } = await stripe.taxRates.list({ active: true, limit: 100 })
+  const existant = data.find(t => !t.inclusive && Number(t.percentage) === TVA_TAUX)
+  if (existant) {
+    idTauxTva = existant.id
+    return idTauxTva
+  }
+
+  const cree = await stripe.taxRates.create({
+    display_name: 'TVA',
+    description: `TVA belge ${TVA_TAUX} %`,
+    percentage: TVA_TAUX,
+    inclusive: false,
+    country: 'BE',
+  })
+  idTauxTva = cree.id
+  return idTauxTva
+}
 
 // Client Supabase agissant AU NOM du visiteur connecté.
 function supabasePourJeton(jeton) {
@@ -29,7 +77,7 @@ function supabasePourJeton(jeton) {
 }
 
 export async function POST(request) {
-  const { jeton, lignes, date, note, etablissement } = await request.json()
+  const { jeton, lignes, date, heure, note, etablissement } = await request.json()
 
   if (!jeton) {
     return NextResponse.json({ error: 'Session expirée. Reconnectez-vous.' }, { status: 401 })
@@ -89,6 +137,50 @@ export async function POST(request) {
     )
   }
 
+  // — L'heure, facultative —
+  //
+  // Rien de choisi : la livraison passe dans la journée, et `heure_livraison`
+  // reste à NULL. C'est le cas par défaut, il ne doit jamais devenir une erreur.
+  //
+  // Une heure choisie, en revanche, doit être un créneau de la liste ET être
+  // encore libre. Le navigateur a déjà grisé les créneaux pris, mais il a pu
+  // les lire il y a dix minutes : c'est ici que ça se tranche.
+  let creneau = null
+  if (heure !== null && heure !== undefined && heure !== '') {
+    if (!estCreneau(heure)) {
+      return NextResponse.json({ error: 'Cette heure de livraison n’est pas proposée.' }, { status: 400 })
+    }
+    creneau = normaliserHeure(heure)
+
+    // Le calendrier laisse choisir aujourd'hui : encore faut-il que le créneau
+    // ne soit pas déjà passé. Calculé à l'heure de Bruxelles, pas à celle du
+    // serveur, qui tourne en UTC.
+    if (creneauPasse(date, creneau)) {
+      return NextResponse.json(
+        { error: 'Ce créneau est déjà passé. Choisissez-en un autre.' },
+        { status: 409 },
+      )
+    }
+
+    const { data: pris, error: ePris } = await sb
+      .from('portail_creneaux_pris')
+      .select('date, heure')
+      .eq('date', date)
+      .eq('heure', creneau)
+
+    // Vue absente (base pas encore à jour) : on ne peut rien garantir, donc on
+    // ne promet rien — la livraison passe dans la journée plutôt que de
+    // réserver une heure qu'on n'a pas su vérifier.
+    if (ePris) {
+      creneau = null
+    } else if (pris?.length) {
+      return NextResponse.json(
+        { error: 'Ce créneau vient d’être réservé. Choisissez-en un autre.' },
+        { status: 409 },
+      )
+    }
+  }
+
   // — Le tarif, lu en base —
   const { data: tarifs, error: eTarif } = await sb
     .from('portail_mon_tarif')
@@ -141,9 +233,10 @@ export async function POST(request) {
 
   try {
     const stripe = getStripe()
+    const tva = await tauxTvaStripe(stripe)
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      line_items: articles,
+      line_items: articles.map(a => ({ ...a, tax_rates: [tva] })),
       success_url: `${origine}/espace?paiement=succes`,
       cancel_url: `${origine}/espace?paiement=annule`,
       // Ce que l'Edge Function relira pour créer la commande et la livraison.
@@ -154,6 +247,7 @@ export async function POST(request) {
         client_id: String(clientId),
         etablissement_id: String(etablissementId),
         date_livraison: date,
+        heure_livraison: creneau ?? '',
         lignes: JSON.stringify(propres).slice(0, 490),
         note: (typeof note === 'string' ? note : '').slice(0, 490),
       },
