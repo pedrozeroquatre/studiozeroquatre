@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import ContactSuccess from '@/components/contact/ContactSuccess'
+import ChampPiege from '@/components/ChampPiege'
 
 const FIELD_CLASS =
   'w-full font-mono text-sm border border-[var(--border2)] bg-bg px-3 py-3 rounded focus:outline-none focus:border-[var(--text)] transition-colors placeholder:text-text3'
@@ -8,7 +9,7 @@ const FIELD_CLASS =
 const LABEL_CLASS = 'font-mono text-xs text-text2 uppercase tracking-widest mb-1 block'
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', message: '', site_web: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
@@ -54,6 +55,7 @@ export default function ContactPage() {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
+          <ChampPiege value={form.site_web} onChange={(v) => updateField('site_web', v)} />
           <div className="mb-6">
             <label htmlFor="name" className={LABEL_CLASS}>Nom</label>
             <input

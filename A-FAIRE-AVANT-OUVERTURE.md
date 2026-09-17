@@ -90,22 +90,31 @@ d'écriture s'affiche chez le restaurateur, marqué « brouillon ».
 - [x] Le vérificateur exclut désormais les brouillons de sa référence : la
       preuve se rejoue à chaque `npm run verifier`
 
-## 4. Durcissement 🟠
+## 4. Durcissement ✅ fait le 17/09/2026
 
-- [ ] **Limite de débit** sur [/api/contact](app/api/contact/route.js) et
-      [/api/orders](app/api/orders/route.js). Aucune aujourd'hui : une boucle
-      fait cracher du mail depuis la vraie boîte `contact@`, et un domaine
-      blacklisté veut dire que Pedro ne reçoit plus rien. Limite par IP +
-      honeypot + longueur maximale sur `message`
-- [ ] **En-têtes de sécurité** dans [next.config.mjs](next.config.mjs), vide
-      aujourd'hui : HSTS, `X-Content-Type-Options`, `frame-ancestors`,
-      `Referrer-Policy`
-- [ ] **`success_url`** dans
-      [app/api/espace/checkout/route.js](app/api/espace/checkout/route.js) est
-      construit depuis l'en-tête `Origin` envoyé par le navigateur : un appelant
-      peut faire revenir la page d'après-paiement sur son propre domaine. À
-      figer sur une constante
-- [ ] Validation d'adresse email dans les deux formulaires
+- [x] **Limite de débit** sur [/api/contact](app/api/contact/route.js) et
+      [/api/orders](app/api/orders/route.js) — [lib/limite-debit.js](lib/limite-debit.js).
+      Trois défenses : champ piège, 5 envois par heure et par adresse, longueurs
+      maximales. ⚠ Le compteur vit en mémoire d'instance : c'est un plafond par
+      instance, pas une garantie. Il arrête les boucles bêtes, pas un attaquant
+      distribué — un compteur partagé (table Postgres) serait la vraie réponse,
+      le jour où ça devient un problème réel
+- [x] **En-têtes de sécurité** dans [next.config.mjs](next.config.mjs) : HSTS,
+      `frame-ancestors 'none'` + `X-Frame-Options`, `nosniff`, `Referrer-Policy`,
+      `Permissions-Policy`. HSTS volontairement **sans `includeSubDomains` ni
+      `preload`** : les deux engagent pour des mois tout ce qui pourrait un jour
+      vivre sur un sous-domaine, et se défont difficilement
+- [x] **`success_url`** figé sur une constante dans
+      [app/api/espace/checkout/route.js](app/api/espace/checkout/route.js) — plus
+      construit sur l'en-tête `Origin` envoyé par le navigateur. Le repli sur
+      l'adresse du serveur ne vaut qu'en développement
+- [x] Validation d'adresse email dans les deux formulaires
+
+⚠ **À faire après le déploiement** : envoyer un vrai message depuis
+`/contact` et une vraie demande depuis `/devis`, et vérifier qu'ils arrivent
+dans la boîte. Si le champ piège se remplissait tout seul (remplissage
+automatique du navigateur), la route répondrait « envoyé » sans rien envoyer —
+une panne silencieuse, exactement ce qu'on cherche à éviter.
 
 ## 5. Stripe en live 🟠
 

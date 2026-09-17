@@ -64,6 +64,25 @@ async function tauxTvaStripe(stripe) {
   return idTauxTva
 }
 
+// L'adresse où Stripe renvoie le client après le paiement.
+//
+// Elle ne doit JAMAIS venir du navigateur. L'en-tête `Origin` est envoyé par
+// l'appelant, qui peut y mettre ce qu'il veut : construire l'adresse de retour
+// dessus laisse quelqu'un faire revenir la page d'après-paiement sur son propre
+// site. En production, elle est donc figée.
+//
+// En développement seulement, on retombe sur l'adresse du serveur lui-même
+// (`request.url`, qui est la nôtre, pas un en-tête du client) pour que le
+// retour marche sur localhost.
+const SITE = 'https://www.studiozeroquatre.com'
+
+function origineSure(request) {
+  const declaree = process.env.NEXT_PUBLIC_SITE_URL
+  if (declaree) return declaree.replace(/\/+$/, '')
+  if (process.env.NODE_ENV !== 'production') return new URL(request.url).origin
+  return SITE
+}
+
 // Client Supabase agissant AU NOM du visiteur connecté.
 function supabasePourJeton(jeton) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -229,7 +248,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Montant nul.' }, { status: 400 })
   }
 
-  const origine = request.headers.get('origin') || new URL(request.url).origin
+  const origine = origineSure(request)
 
   try {
     const stripe = getStripe()

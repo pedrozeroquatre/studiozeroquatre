@@ -1,5 +1,6 @@
 'use client'
 import { useState, useId } from 'react'
+import ChampPiege from '@/components/ChampPiege'
 import SuccessScreen from '@/components/devis/SuccessScreen'
 import { cn } from '@/lib/cn'
 import { PRODUCTS, PRODUCT_CATEGORIES } from '@/lib/products'
@@ -142,6 +143,7 @@ export default function DevisPage() {
     phone: '',
     boxType: '',
     notes: '',
+    site_web: '',
   })
   const [lines, setLines] = useState([emptyLine()])
   const [submitting, setSubmitting] = useState(false)
@@ -226,6 +228,7 @@ export default function DevisPage() {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
+          <ChampPiege value={form.site_web} onChange={(v) => updateField('site_web', v)} />
           {/* Contact */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>

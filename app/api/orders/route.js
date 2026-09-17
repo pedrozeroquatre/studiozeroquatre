@@ -1,19 +1,57 @@
 import { NextResponse } from 'next/server'
 import { sendMail, renderEmail } from '@/lib/mailer'
 import { generateRef } from '@/lib/generateRef'
+import {
+  limiteAtteinte, piegeRempli, emailValide, tronquer, LONGUEURS,
+} from '@/lib/limite-debit'
+
+// Au-delà, ce n'est plus une demande de devis.
+const MAX_PRODUITS = 20
 
 export async function POST(request) {
-  const body = await request.json()
-  const { restaurant, name, email, phone, products, boxType, notes } = body
+  const body = await request.json().catch(() => null)
+  if (!body) {
+    return NextResponse.json({ success: false, error: 'Requête illisible' }, { status: 400 })
+  }
+
+  // Voir la route contact : on répond « c'est parti » au robot reconnu plutôt
+  // que de lui apprendre qu'il est repéré.
+  if (piegeRempli(body)) {
+    return NextResponse.json({ success: true, ref: generateRef() })
+  }
+
+  if (limiteAtteinte(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Trop de demandes envoyées. Réessayez dans une heure.' },
+      { status: 429 },
+    )
+  }
+
+  const restaurant = tronquer(body.restaurant, LONGUEURS.restaurant)
+  const name = tronquer(body.name, LONGUEURS.nom)
+  const email = tronquer(body.email, LONGUEURS.email)
+  const phone = tronquer(body.phone, LONGUEURS.telephone)
+  const boxType = tronquer(body.boxType, LONGUEURS.nom)
+  const notes = tronquer(body.notes, LONGUEURS.notes)
 
   if (!restaurant || !name || !email) {
     return NextResponse.json({ success: false, error: 'Champs manquants' }, { status: 400 })
+  }
+  if (!emailValide(email)) {
+    return NextResponse.json({ success: false, error: 'Adresse email invalide' }, { status: 400 })
   }
 
   const ref = generateRef()
 
   // Le formulaire envoie un tableau `products` : { product, dimension, volume }.
-  const items = Array.isArray(products) ? products.filter((p) => p && p.product) : []
+  const items = (Array.isArray(body.products) ? body.products : [])
+    .filter((p) => p && p.product)
+    .slice(0, MAX_PRODUITS)
+    .map((p) => ({
+      product: tronquer(p.product, LONGUEURS.nom),
+      dimension: tronquer(p.dimension, LONGUEURS.nom),
+      volume: tronquer(p.volume, LONGUEURS.nom),
+    }))
   const describe = (p) => [p.product, p.dimension, p.volume].filter(Boolean).join(' — ')
 
   const lines = [
