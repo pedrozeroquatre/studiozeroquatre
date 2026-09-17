@@ -184,7 +184,31 @@ siège, n° BCE, n° TVA. Elles ne s'inventent pas.
 
 ---
 
+## 7. Après la remise à zéro de la base
+
+Ce n'est pas du travail en retard : c'est une étape de ce chantier-là, qui se
+découvrirait sinon le jour où un client ne voit plus ses livraisons.
+
+`supabase-remise-a-zero.sql` emporte les vues du portail avec le reste. Une fois
+`repeuplement.sql` passé, il faut donc rejouer, dans cet ordre :
+
+- [ ] `supabase/vue-tarif.sql` (dépôt du site)
+- [ ] `supabase/paiement-et-capacite.sql` (dépôt du site) — recrée aussi
+      `enregistrer_commande_payee()`
+- [ ] `supabase-portail-brouillons.sql` (dépôt de l'OS) — **après** le
+      précédent, qui recrée `portail_mes_documents` sans le filtre
+- [ ] `npm run verifier` pour reprouver le cloisonnement
+
+⚠ L'ordre compte : `paiement-et-capacite.sql` recrée `portail_mes_documents`
+dans sa version d'origine. Passer les brouillons avant, c'est les perdre.
+
+
 ## Ordre
 
-1 → 2 → 3 → 4 → 5 → 6. Le légal en dernier parce qu'il attend les informations
-de la société, pas parce qu'il est secondaire.
+Les points 1 à 5 sont faits et vérifiés. Il reste le **6**, qui attend les
+informations de la société — et le **7**, qui ne se déclenche que le jour de la
+remise à zéro.
+
+Le point 6 comprend une chose qui n'est pas une page de texte : **une case
+d'acceptation des CGV** avant le bouton de paiement, avec la date enregistrée.
+Publier des CGV ne les rend pas opposables ; les faire accepter, si.
