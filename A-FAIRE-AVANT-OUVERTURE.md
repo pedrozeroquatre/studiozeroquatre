@@ -116,24 +116,43 @@ dans la boîte. Si le champ piège se remplissait tout seul (remplissage
 automatique du navigateur), la route répondrait « envoyé » sans rien envoyer —
 une panne silencieuse, exactement ce qu'on cherche à éviter.
 
-## 5. Stripe en live 🟠
+## 5. Stripe en live ✅ fait le 17/09/2026
 
 Ce n'est pas qu'une clé à changer.
 
-- [ ] **Redéployer l'Edge Function d'abord.** Une version antérieure lisait
-      `amount_total` au lieu de `amount_subtotal` : sans ce redéploiement, 21 %
-      de TVA entrent dans `prix_htva` et le chiffre d'affaires est faux dans
-      l'OS. Erreur comptable, pas bug d'affichage. Voir les deux ⚠ de
-      [NOTES-ESPACE-CLIENT.md](NOTES-ESPACE-CLIENT.md)
-- [ ] Stripe en Live mode → clé `sk_live_…`
-- [ ] Endpoint webhook live vers **l'Edge Function Supabase**, pas vers le site
-      (event `checkout.session.completed`) → son `whsec_…`
-- [ ] Les deux clés dans les **secrets Edge Functions** de Supabase
-- [ ] Vérifier que `SUPABASE_SERVICE_ROLE_KEY` est **absente** des variables
-      Vercel du site
-- [ ] Relire les tarifs clients en base avant d'ouvrir — c'est ce montant qui
-      est réellement débité
-- [ ] Un vrai petit paiement de validation, remboursé derrière
+- [x] **Edge Function redéployée en premier** (v6). Une version antérieure
+      lisait `amount_total` : sans ça, 21 % de TVA entraient dans `prix_htva`
+- [x] Stripe activé et passé en Live, **clé restreinte** plutôt que clé standard —
+      permissions : Checkout Sessions (write) et Tax Rates (write). La même clé
+      sert à la fonction, qui ne fait de toute façon aucun appel à l'API : elle
+      ne vérifie qu'une signature, calcul local
+- [x] Destination webhook live vers l'Edge Function, `checkout.session.completed`
+- [x] Les deux secrets dans les Edge Functions de Supabase, la clé sur Vercel en
+      **Production uniquement** (la clé de test reste sur Preview et Development)
+- [x] Tarifs relus : les 3 clients avec un accès en ont tous un, strictement
+      positif. Les 71 autres n'ont pas d'accès, donc ne peuvent rien débiter
+- [x] **Paiement de validation réel** : 1,82 € TTC encaissés, `prix_htva = 1.50`
+      et `montant_htva = 1.50` en base, `tva_taux = 21`, commande et livraison
+      créées ensemble. 1,50 × 1,21 = 1,815 → 1,82. La chaîne est prouvée de
+      bout en bout
+
+### Deux pièges rencontrés, pour mémoire
+
+**Les clés et les webhooks sont propres à chaque mode.** Une clé restreinte
+créée pendant que le dashboard est en Sandbox est une clé de test, et rien ne le
+signale. La liste des destinations webhook est vide et séparée en Live.
+
+**Les TaxRates aussi.** Celui créé en test n'existe pas en live : la route essaie
+donc d'en créer un au premier paiement, ce qui exige *Tax Rates → Write* sur la
+clé restreinte. Sans cette permission, le paiement refuse de s'ouvrir (502) — et
+c'est voulu : il n'y a pas de repli sans TVA, facturer HTVA laisserait le studio
+devoir 21 % de sa poche.
+
+### Limite connue
+
+Un remboursement depuis Stripe ne revient pas en base : `paiement_recu` reste à
+`true`. Il n'y a pas de webhook de remboursement. Les lignes se corrigent à la
+main dans l'OS.
 
 ## 6. Les pages légales 🟡
 
