@@ -184,24 +184,18 @@ siège, n° BCE, n° TVA. Elles ne s'inventent pas.
 
 ---
 
-## 7. Après la remise à zéro de la base
+## 7. ~~Après la remise à zéro de la base~~ — abandonné le 17/09/2026
 
-Ce n'est pas du travail en retard : c'est une étape de ce chantier-là, qui se
-découvrirait sinon le jour où un client ne voit plus ses livraisons.
+La remise à zéro n'est plus prévue : la base garde ses données.
 
-`supabase-remise-a-zero.sql` emporte les vues du portail avec le reste. Une fois
-`repeuplement.sql` passé, il faut donc rejouer, dans cet ordre :
+La mise en garde reste vraie si ces scripts sont un jour rejoués, pour une
+autre raison : **`paiement-et-capacite.sql` recrée `portail_mes_documents` dans
+sa version d'origine, sans le filtre des brouillons.** Il faut donc toujours
+repasser `supabase-portail-brouillons.sql` derrière lui, jamais avant — sinon
+les devis en cours d'écriture redeviennent visibles chez le client, sans que
+rien ne le signale.
 
-- [ ] `supabase/vue-tarif.sql` (dépôt du site)
-- [ ] `supabase/paiement-et-capacite.sql` (dépôt du site) — recrée aussi
-      `enregistrer_commande_payee()`
-- [ ] `supabase-portail-brouillons.sql` (dépôt de l'OS) — **après** le
-      précédent, qui recrée `portail_mes_documents` sans le filtre
-- [ ] `npm run verifier` pour reprouver le cloisonnement
-
-⚠ L'ordre compte : `paiement-et-capacite.sql` recrée `portail_mes_documents`
-dans sa version d'origine. Passer les brouillons avant, c'est les perdre.
-
+Le contrôle, dans tous les cas : `npm run verifier`.
 
 ## Ordre
 
