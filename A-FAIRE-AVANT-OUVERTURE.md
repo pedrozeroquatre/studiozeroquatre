@@ -74,12 +74,21 @@ que d'un seul client.
 - [ ] Le refaire après chaque changement de vue `portail_*` — garder le compte
       de test pour ça
 
-## 3. Filtrer les devis en brouillon 🟠
+## 3. Filtrer les devis en brouillon ✅ fait le 17/09/2026
 
 `portail_mes_documents` ne filtre pas sur `statut` : un devis en cours
 d'écriture s'affiche chez le restaurateur, marqué « brouillon ».
 
-- [ ] `and d.statut <> 'brouillon'` dans la vue
+- [x] `and coalesce(d.statut, '') <> 'brouillon'` dans la vue —
+      `supabase-portail-brouillons.sql` passé dans l'éditeur SQL. Le filtre est
+      dans la vue et non côté site : masqué dans le navigateur, le brouillon
+      partirait quand même sur le poste du client
+- [x] Prouvé dans les deux sens sur le compte de test : un devis en brouillon
+      rattaché au client est invisible à travers la vue, et le même devis passé
+      en « envoyé » réapparaît. Le second test écarte un filtre trop large, qui
+      aurait caché tous les documents en paraissant vert
+- [x] Le vérificateur exclut désormais les brouillons de sa référence : la
+      preuve se rejoue à chaque `npm run verifier`
 
 ## 4. Durcissement 🟠
 
