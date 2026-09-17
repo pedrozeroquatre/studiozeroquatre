@@ -9,7 +9,7 @@ ignorait le point 1.
 
 ---
 
-## 1. Fermer l'ancien portail `/portal` ✅ fait le 17/09/2026 (reste l'étape Stripe)
+## 1. Fermer l'ancien portail `/portal` ✅ fait le 17/09/2026
 
 Le trou le plus sérieux, et il n'était dans aucune liste.
 
@@ -27,6 +27,10 @@ Enjeu : des données commerciales de clients professionnels accessibles avec un
 mot devinable, c'est une violation de données au sens du RGPD, notifiable à
 l'APD sous 72 h.
 
+Vérifié en production le 17/09 : `/portal` rend `307 → /espace`, et les quatre
+routes d'API supprimées rendent `404`. `/espace` et les pages publiques sont
+intactes.
+
 - [x] `/portal` redirige vers `/espace`
 - [x] Supprimer `app/portal/`, `app/api/portal/`, `components/portal/Dashboard.js`,
       `components/portal/LoginForm.js`, `lib/clients.js`, `lib/lastOrder.js`
@@ -34,9 +38,17 @@ l'APD sous 72 h.
       servait qu'à `/portal`, les paiements de l'espace passent par l'Edge
       Function), et avec lui `lib/orders-store.js` + `lib/supabase.js`
 - [x] Garder `components/portal/PortalNav.js` — l'espace s'en sert
-- [ ] Supprimer l'endpoint webhook correspondant dans le dashboard Stripe
+- [x] ~~Supprimer l'endpoint webhook correspondant dans le dashboard Stripe~~ —
+      sans objet, vérifié le 17/09 : la liste du mode test ne contient que
+      l'Edge Function de l'espace. L'ancien webhook du site n'a jamais été
+      testé qu'en local via `stripe listen`, et un listener CLI n'est pas un
+      endpoint enregistré
+- [ ] Vercel → variables d'environnement : retirer `STRIPE_WEBHOOK_SECRET`,
+      `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_KEY`,
+      `SPREADSHEET_ID`. Garder `STRIPE_SECRET_KEY`, les deux `NEXT_PUBLIC_SUPABASE_*`
+      et les `SMTP_*`
 
-## 2. Prouver le cloisonnement client 🔴
+## 2. Prouver le cloisonnement client ✅ fait le 17/09/2026
 
 `npm run verifier` (dépôt de l'OS) confirme que la base est verrouillée : 28
 tables et vues refusées au visiteur anonyme, inscriptions publiques fermées.
@@ -46,8 +58,21 @@ Mais il a un second mode, jamais utilisé : `SZQ_CLIENT_EMAIL` /
 ne voit pas les livraisons du client B. À faire avant d'ouvrir un deuxième
 accès.
 
-- [ ] Créer un compte client de test, poser les deux variables, relancer
-- [ ] Le refaire après chaque changement de vue `portail_*`
+Le contrôle a été complété ce jour-là : il comparait ce que le client **ne peut
+pas** atteindre, jamais ce qu'il voit à travers les vues `portail_*` — qui sont
+faites pour lui répondre et auraient répondu aussi bien avec les données d'un
+autre. Il compte désormais les lignes lues et les compare à ce que la base
+contient pour lui, et il refuse de conclure si la base ne contient les données
+que d'un seul client.
+
+- [x] Créer un compte client de test, poser les deux variables, relancer
+- [x] Résultat du 17/09 : 0 livraison sur 44, **1 stock sur 10**, 0 document sur
+      2, 0 commande sur 4. La ligne des stocks porte les deux moitiés de la
+      preuve : il voit la sienne, et seulement la sienne
+- [x] 13 tables internes muettes même connecté, écriture dans la liste blanche
+      refusée (403), une seule fiche au profil, aucune colonne sensible
+- [ ] Le refaire après chaque changement de vue `portail_*` — garder le compte
+      de test pour ça
 
 ## 3. Filtrer les devis en brouillon 🟠
 
