@@ -106,6 +106,44 @@ export function ficheClient(etab) {
   };
 }
 
+// Le client Falco d'un restaurant : celui déjà lié (`falcoClientId`), sinon
+// celui que Falco connaît sous ce numéro de TVA — le studio a pu le créer à la
+// main avant l'espace —, sinon un nouveau. Rend son identifiant.
+//
+// Un client existant est mis à jour avec la fiche de l'espace (raison
+// sociale et adresse VIES, qui font foi), MAIS ses e-mails sont fusionnés,
+// jamais remplacés : une adresse ajoutée dans Falco par le studio — celle
+// d'un comptable, typiquement — n'est pas effacée par la commande suivante.
+// La facture, elle, part à l'adresse choisie dans l'espace (cf. l'envoi).
+export async function resoudreClient(appel, etab, falcoClientId) {
+  const fiche = ficheClient(etab);
+
+  let existant = null;
+  if (falcoClientId) {
+    try {
+      existant = await appel("GET", `/customers/${falcoClientId}`);
+    } catch (e) {
+      // Supprimé dans Falco depuis : on retombe sur la recherche par TVA.
+      if (!(e instanceof ErreurFalco && e.status === 404)) throw e;
+    }
+  }
+  if (!existant?.id) {
+    const trouves = await appel("GET", `/customers?vat=${encodeURIComponent(fiche.vat_number)}`);
+    existant = trouves?.data?.[0] ?? null;
+  }
+
+  if (!existant?.id) {
+    const cree = await appel("POST", "/customers", fiche);
+    if (!cree?.id) throw new ErreurFalco("Falco n'a pas rendu d'identifiant client.");
+    return { id: cree.id, cree: true };
+  }
+
+  const emails = [...new Set([...fiche.emails, ...(existant.emails ?? [])]
+    .filter(Boolean).map((m) => m.trim().toLowerCase()))];
+  await appel("PATCH", `/customers/${existant.id}`, { ...fiche, emails });
+  return { id: existant.id, cree: false, emails };
+}
+
 // On facture exactement ce que Stripe a encaissé, ligne par ligne : même
 // montant HTVA par ligne. La TVA, Falco la calcule lui-même — il refuse un
 // `total_amount` quand les prix sont HTVA (malgré sa doc, qui le dit requis).

@@ -31,7 +31,7 @@
 // jour conditionnelle, que seule l'une des deux peut gagner.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { appelFalco, ErreurFalco, canalEnvoi, ficheClient, lignesFacture, corpsFacture } from "./falco-api.mjs";
+import { appelFalco, ErreurFalco, canalEnvoi, ficheClient, lignesFacture, corpsFacture, resoudreClient } from "./falco-api.mjs";
 
 // Une réservation plus vieille que ça vient d'une exécution morte en route.
 const RESERVATION_PERIMEE_MS = 10 * 60 * 1000;
@@ -59,27 +59,14 @@ export function falcoConfigure() {
 
 // ── Le client Falco ─────────────────────────────────────────────────────────
 // Un restaurant = un client Falco, mémorisé dans `etablissements.falco_client_id`.
-// À chaque facture, on lui repousse la fiche actuelle : si le restaurant a
-// corrigé son adresse dans l'espace, la facture suivante la porte.
+// À chaque facture, on lui repousse la fiche actuelle (cf. resoudreClient) :
+// si le restaurant a corrigé son adresse dans l'espace, la facture suivante
+// la porte.
 async function clientFalco(supabase: SupabaseClient, etab: Record<string, string | null>) {
-  const fiche = ficheClient(etab);
-
-  if (etab.falco_client_id) {
-    await appel("PATCH", `/customers/${etab.falco_client_id}`, fiche);
-    return etab.falco_client_id;
+  const { id } = await resoudreClient(appel, etab, etab.falco_client_id);
+  if (id !== etab.falco_client_id) {
+    await supabase.from("etablissements").update({ falco_client_id: id }).eq("id", etab.id);
   }
-
-  // Pas encore lié : peut-être déjà créé à la main dans Falco par le studio.
-  const trouves = await appel("GET", `/customers?vat=${encodeURIComponent(fiche.vat_number)}`);
-  let id: string | undefined = trouves?.data?.[0]?.id;
-  if (id) {
-    await appel("PATCH", `/customers/${id}`, fiche);
-  } else {
-    id = (await appel("POST", "/customers", fiche))?.id;
-  }
-  if (!id) throw new ErreurFalco("Falco n'a pas rendu d'identifiant client.", 0);
-
-  await supabase.from("etablissements").update({ falco_client_id: id }).eq("id", etab.id);
   return id;
 }
 

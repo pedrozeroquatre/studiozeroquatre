@@ -22,7 +22,7 @@
 
 import { readFileSync } from "node:fs";
 import {
-  appelFalco, canalEnvoi, ficheClient, lignesFacture, corpsFacture,
+  appelFalco, canalEnvoi, ficheClient, lignesFacture, corpsFacture, resoudreClient,
 } from "../supabase/functions/enregistrer-commande-payee/falco-api.mjs";
 
 const vert = (t) => `\x1b[32m${t}\x1b[0m`;
@@ -84,15 +84,20 @@ try {
 
   etape("Client");
   const fiche = ficheClient(etab);
-  const trouves = await appel("GET", `/customers?vat=${encodeURIComponent(fiche.vat_number)}`);
-  let clientId = trouves?.data?.[0]?.id;
-  if (clientId) {
-    await appel("PATCH", `/customers/${clientId}`, fiche);
-    console.log(vert("  ✓"), `existant, mis à jour (${clientId})`);
-  } else {
-    clientId = (await appel("POST", "/customers", fiche))?.id;
-    console.log(vert("  ✓"), `créé (${clientId})`);
-  }
+  const premier = await resoudreClient(appel, etab, null);
+  console.log(vert("  ✓"), premier.cree ? `créé (${premier.id})` : `existant, retrouvé par TVA (${premier.id})`);
+  const clientId = premier.id;
+
+  // Comme si le studio avait ajouté l'adresse du comptable dans Falco : elle
+  // doit survivre à la mise à jour suivante.
+  const comptable = "comptable-test@exemple.be";
+  await appel("PATCH", `/customers/${clientId}`, { emails: [comptable] });
+  const second = await resoudreClient(appel, etab, clientId);
+  const relu = await appel("GET", `/customers/${clientId}`);
+  const garde = (relu?.emails ?? []).map((m) => m.toLowerCase());
+  const ok = garde.includes(comptable) && garde.includes(etab.facturation_email.toLowerCase());
+  console.log(ok ? vert("  ✓") : rouge("  ✗"), `e-mails après mise à jour : ${garde.join(", ") || "aucun"}`);
+  if (second.id !== clientId) console.log(rouge("  ✗"), `un autre client a été rendu (${second.id})`);
 
   etape("Facture (brouillon)");
   const numeroCommande = `TEST-${Date.now()}`;
