@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabasePourJeton } from '@/lib/supabase-jeton'
 import { getStripe } from '@/lib/stripe'
 import { TVA_TAUX } from '@/lib/tva'
 import { creneauPasse, estCreneau, normaliserHeure } from '@/lib/creneaux'
+import { CGV_VERSION } from '@/lib/societe'
 
 // Création de la session de paiement de l'espace client.
 //
@@ -83,23 +84,20 @@ function origineSure(request) {
   return SITE
 }
 
-// Client Supabase agissant AU NOM du visiteur connecté.
-function supabasePourJeton(jeton) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const cle = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !cle) return null
-
-  return createClient(url, cle, {
-    global: { headers: { Authorization: `Bearer ${jeton}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-}
-
 export async function POST(request) {
-  const { jeton, lignes, date, heure, note, etablissement } = await request.json()
+  const { jeton, lignes, date, heure, note, etablissement, cgvAcceptees } = await request.json()
 
   if (!jeton) {
     return NextResponse.json({ error: 'Session expirée. Reconnectez-vous.' }, { status: 401 })
+  }
+
+  // La case de l'espace n'est qu'un confort : c'est ici que l'acceptation des
+  // CGV se tranche. Sans elle, pas de paiement.
+  if (cgvAcceptees !== true) {
+    return NextResponse.json(
+      { error: 'Acceptez les conditions générales de vente pour continuer.' },
+      { status: 400 },
+    )
   }
 
   const sb = supabasePourJeton(jeton)
@@ -134,6 +132,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Restaurant inconnu.' }, { status: 403 })
     }
     etablissementId = etablissement
+  }
+
+  // — La fiche de facturation —
+  //
+  // Sans elle, la facture Peppol ne peut pas partir : on refuse le paiement
+  // plutôt que d'encaisser une commande qu'on ne saurait pas facturer. L'espace
+  // demande la fiche avant d'afficher quoi que ce soit, donc ce refus ne
+  // devrait jamais se voir. Vue absente (base pas encore à jour) : on laisse
+  // passer, comme pour la capacité.
+  const { data: fiche, error: eFiche } = await sb
+    .from('portail_ma_facturation')
+    .select('complete')
+    .eq('id', etablissementId)
+    .limit(1)
+  if (!eFiche && !fiche?.[0]?.complete) {
+    return NextResponse.json(
+      { error: 'Complétez vos informations de facturation avant de commander.' },
+      { status: 409 },
+    )
   }
 
   // — La date —
@@ -269,6 +286,11 @@ export async function POST(request) {
         heure_livraison: creneau ?? '',
         lignes: JSON.stringify(propres).slice(0, 490),
         note: (typeof note === 'string' ? note : '').slice(0, 490),
+        // La preuve de l'acceptation des CGV : quelle version, et quand —
+        // horodatée par le serveur, pas par le navigateur. Stripe la garde
+        // attachée au paiement, consultable depuis son dashboard.
+        cgv_version: CGV_VERSION,
+        cgv_acceptees_le: new Date().toISOString(),
       },
     })
 

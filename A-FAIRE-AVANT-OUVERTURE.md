@@ -154,7 +154,7 @@ Un remboursement depuis Stripe ne revient pas en base : `paiement_recu` reste à
 `true`. Il n'y a pas de webhook de remboursement. Les lignes se corrigent à la
 main dans l'OS.
 
-## 6. Les pages légales 🟡
+## 6. Les pages légales 🟡 rédigées le 30/09/2026 — à faire relire
 
 Aucun lien légal dans [components/layout/Footer.js](components/layout/Footer.js)
 aujourd'hui. Il en faut trois.
@@ -164,20 +164,34 @@ la consommation (rétractation de 14 jours, garantie légale de 2 ans) ne
 s'applique pas. Le risque réel n'est pas le procès d'un client, c'est l'amende
 administrative pour mentions manquantes et l'incident RGPD du point 1.
 
-- [ ] **Mentions légales** — obligatoire (Code de droit économique, livre XII) :
+- [x] **Mentions légales** — obligatoire (Code de droit économique, livre XII) :
       dénomination, forme juridique, siège, n° BCE, n° TVA, email, téléphone,
       hébergeur
-- [ ] **Politique de confidentialité** — obligatoire (RGPD art. 13) : données
+- [x] **Politique de confidentialité** — obligatoire (RGPD art. 13) : données
       collectées (contact, devis, comptes de l'espace), finalités, base légale,
       sous-traitants (Stripe, Supabase, Vercel, Private Email), durées de
       conservation, droits, recours à l'APD
-- [ ] **CGV** — pas optionnel dès qu'on encaisse en ligne : prix, délais,
+- [x] **CGV** — pas optionnel dès qu'on encaisse en ligne : prix, délais,
       modalités de paiement, réclamations, loi applicable. Sans écrit, un litige
       de livraison devient parole contre parole
-- [ ] **Cookies** — mention simple suffit : pas d'analytics, et le jeton de
+- [x] **Cookies** — mention simple suffit : pas d'analytics, et le jeton de
       session de l'espace est strictement nécessaire. Pas de bandeau
-- [ ] Les trois liens dans le footer
-- [ ] Décider FR seul ou FR/EN (le site a un basculement FR/EN)
+- [x] Les trois liens dans le footer
+- [x] FR seul pour l'instant : un texte juridique traduit est une seconde
+      version à tenir juste
+- [x] Case d'acceptation des CGV avant « Payer », revérifiée par
+      `/api/espace/checkout`, qui pose `cgv_version` et `cgv_acceptees_le` dans
+      les métadonnées Stripe. Pas encore en base de l'OS (il faudrait une
+      colonne et l'Edge Function)
+- [ ] **Confirmer l'adresse du siège** (marquée « à confirmer » par Pedro) —
+      [lib/societe.js](lib/societe.js)
+- [ ] **Faire relire les CGV** : délai de réclamation (8 jours), paiement sur
+      devis à 30 jours, limitation de responsabilité, droit de montrer les
+      réalisations, compétence des tribunaux de Bruxelles
+- [ ] Durées de conservation de la politique de confidentialité à valider
+
+Les identités de la société vivent dans [lib/societe.js](lib/societe.js), avec
+la version des CGV : **changer le texte des CGV = changer `CGV_VERSION`**.
 
 ⚠ La rédaction demande les vraies informations de la société : forme juridique,
 siège, n° BCE, n° TVA. Elles ne s'inventent pas.
@@ -196,6 +210,22 @@ les devis en cours d'écriture redeviennent visibles chez le client, sans que
 rien ne le signale.
 
 Le contrôle, dans tous les cas : `npm run verifier`.
+
+## 8. La fiche de facturation 🟡 en base le 07/10/2026 — à tester dans l'espace
+
+Préalable à la facturation Falco (Peppol) : chaque restaurant donne lui-même
+son numéro de TVA à sa connexion, VIES remplit la société et l'adresse.
+
+- [x] Exécuter `supabase/facturation.sql` dans le SQL Editor
+- [x] `npm run verifier` depuis le dépôt de l'OS (la vue y est ajoutée) — tout vert
+- [ ] Tester avec un compte client : la fiche s'affiche avant le tableau de
+      bord, « Modifier » la rouvre depuis la section Facturation
+- [ ] Ensuite seulement : brancher Falco dans `enregistrer-commande-payee`
+      (clé API dans les secrets Supabase, jamais sur Vercel)
+
+Tant que le SQL n'est pas passé, l'espace se comporte exactement comme avant.
+Une fois passé, **plus aucun paiement sans fiche complète** — les clients
+existants la remplissent à leur prochaine connexion.
 
 ## Ordre
 

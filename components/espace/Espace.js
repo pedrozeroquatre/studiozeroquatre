@@ -7,6 +7,7 @@ import {
 } from '@/lib/espace-data'
 import { TVA_TAUX, avecTva } from '@/lib/tva'
 import { formatCreneau } from '@/lib/creneaux'
+import { formaterTva } from '@/lib/numero-tva'
 import {
   Ecran, C, S, SYNE, Label, Section, Tableau, TD, Statut,
   BoutonPrincipal, BoutonFantome, Vide,
@@ -89,11 +90,11 @@ function ProchaineLivraison({ livraisons, lignes, etablissements }) {
 }
 
 // ── L'espace ────────────────────────────────────────────────────────────────
-export default function Espace({ donnees, identite, email, paiement, onDeconnexion, onRecharger }) {
+export default function Espace({ donnees, identite, email, paiement, onDeconnexion, onRecharger, onModifierFacturation }) {
   const {
     profil, etablissements, livraisons, lignesLivraison,
     stocks, documents, commandes, lignesCommande, tarif, joursComplets,
-    creneauxPris,
+    creneauxPris, facturation,
   } = donnees
 
   const [etabActif, setEtabActif] = useState(null) // null = tous
@@ -366,6 +367,25 @@ export default function Espace({ donnees, identite, email, paiement, onDeconnexi
             </Tableau>
           )}
         </Section>
+
+        {/* Facturation — absente tant que supabase/facturation.sql n'est pas passé */}
+        {facturation?.length > 0 && (
+          <Section titre="Facturation">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+              {facturation.filter(f => !etab || f.id === etab.id).map(f => (
+                <div key={f.id} style={{ ...S.carte, padding: 20, fontSize: 12, color: C.doux, lineHeight: 1.8 }}>
+                  {facturation.length > 1 && <div style={{ fontSize: 10, color: C.pale, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>{f.nom}</div>}
+                  <div style={{ color: C.vif }}>{f.societe || '—'}</div>
+                  <div>{f.rue}</div>
+                  <div>{f.cp} {f.ville}</div>
+                  <div>{f.tva ? formaterTva(f.tva) : '—'}</div>
+                  <div style={{ marginTop: 6, color: C.gris }}>Factures : {f.email || email}</div>
+                  <BoutonFantome onClick={() => onModifierFacturation(f.id)} style={{ marginTop: 14 }}>Modifier</BoutonFantome>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Contact */}
         <div style={{ marginTop: 56, paddingTop: 24, borderTop: `1px solid ${C.trait}`, fontSize: 11, color: C.pale, lineHeight: 1.8 }}>

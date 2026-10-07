@@ -31,6 +31,12 @@ const CONTACTS = [
   { Icon: PhoneIcon, label: '+32 471 34 54 34', href: 'tel:+32471345434' },
 ]
 
+const LEGAL = [
+  { label: 'Mentions légales', href: '/mentions-legales' },
+  { label: 'Confidentialité', href: '/confidentialite' },
+  { label: 'CGV', href: '/cgv' },
+]
+
 export default function Footer() {
   return (
     <footer className="border-t border-[var(--border)] py-12 px-6">
@@ -48,8 +54,16 @@ export default function Footer() {
           ))}
         </div>
 
+        <nav aria-label="Informations légales" className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+          {LEGAL.map(({ label, href }) => (
+            <a key={href} href={href} className="font-mono text-xs text-text2 hover:text-text transition-colors">
+              {label}
+            </a>
+          ))}
+        </nav>
+
         <p className="font-mono text-xs text-text3">
-          © 2026 Studio Zeroquatre. Bruxelles.
+          © 2026 Studio Zeroquatre SRL. Bruxelles.
         </p>
       </div>
     </footer>

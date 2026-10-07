@@ -28,7 +28,7 @@ No test suite configured.
 ### Key files
 
 - `lib/supabase-browser.js` — browser Supabase client for `/espace`, publishable (anon) key only. Also captures the invitation link's URL fragment **before** `createClient()` consumes it — the two run in that order in the same module, which is what makes the invite flow reliable. Never put the service role key here.
-- `lib/espace-data.js` — every read and write of `/espace`: the `portail_*` views (explicit column lists), the `mon_client_id()` / `mon_etablissement_id()` RPCs, and `passer_commande()`. Plus the French formatting helpers.
+- `lib/espace-data.js` — every read and write of `/espace`: the `portail_*` views (explicit column lists), the `mon_client_id()` / `mon_etablissement_id()` RPCs, `passer_commande()` and `enregistrer_facturation()`. Plus the French formatting helpers.
 - `lib/clients.js` — **source of truth for the legacy `/portal` only**. Hardcoded registry of all clients, their access codes, product SKUs, formats, and per-unit prices. Adding/removing a client or changing prices happens here. `findClientByCode()` is the login lookup — no database involved.
 - `lib/supabase.js` — server-only Supabase client (service role key, bypasses RLS). Never import it from a client component. `getSupabase()` returns `null` when the env vars are absent, so callers degrade instead of throwing.
 - `lib/orders-store.js` — the only module that writes paid orders. Reads/writes the `orders` table; no-ops when Supabase is unconfigured.
@@ -46,7 +46,7 @@ OS; **public sign-ups are closed — do not reopen them.**
 
 The hard rule, set by `PORTAIL-CLIENT.md` and enforced database-side: **a client
 has no rights on any table.** They read only the `portail_*` views and write only
-through `passer_commande()`. Never add a client RLS policy on a base table, never
+through `passer_commande()` and `enregistrer_facturation()`. Never add a client RLS policy on a base table, never
 modify a view. If data is missing, ask for a view — `clients.notes`,
 `clients.prix`, `clients.plaques` and `livraisons.tva_transferee` are internal and
 a `select *` would leak them.
@@ -64,6 +64,16 @@ token in the URL fragment. The page detects it, has the client choose a password
 via `auth.updateUser()`, then loads their space. Expired links (24 h) arrive as
 `#error=access_denied&error_code=otp_expired` and get their own screen. "Mot de
 passe oublié" never reveals whether an address exists.
+
+Billing details (fiche de facturation): before showing the dashboard, `/espace`
+asks every restaurant without a complete `portail_ma_facturation` row for its
+VAT number. `/api/espace/tva` looks it up in VIES (server-side — VIES has no
+CORS, and the route requires a client session so it is not an open relay) and
+the client confirms the company name and registered address; the invoice email
+defaults to the login email. `/api/espace/checkout` refuses payment while the
+row is incomplete. SQL in `supabase/facturation.sql`. Both checks degrade to
+"allow" while that view does not exist yet. This feeds the planned Falco
+(Peppol) invoicing step in the `enregistrer-commande-payee` Edge Function.
 
 Page order is deliberate and driven by what a pizzeria owner needs at a glance:
 next delivery, then the reorder button — then the order form, then history lower

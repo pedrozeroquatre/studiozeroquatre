@@ -4,11 +4,12 @@ import Link from 'next/link'
 import {
   getEspaceSupabase, espaceConfigure, lienExpire, lienChoixMotDePasse, LIEN,
 } from '@/lib/supabase-browser'
-import { chargerIdentite, chargerEspace } from '@/lib/espace-data'
+import { chargerIdentite, chargerEspace, fichesAFaire } from '@/lib/espace-data'
 import ChoixMotDePasse from '@/components/espace/ChoixMotDePasse'
 import LienExpire from '@/components/espace/LienExpire'
 import Connexion from '@/components/espace/Connexion'
 import Espace from '@/components/espace/Espace'
+import FicheFacturation from '@/components/espace/FicheFacturation'
 import { Ecran, CarteAuth, C } from '@/components/espace/ui'
 
 // Point d'entrée unique de l'espace client.
@@ -25,6 +26,9 @@ import { Ecran, CarteAuth, C } from '@/components/espace/ui'
 //   connexion      — email + mot de passe
 //   sans-acces     — connecté, mais ce compte n'est pas un compte client
 //   erreur         — la base a refusé la lecture
+//   facturation    — un restaurant n'a pas encore sa fiche de facturation :
+//                    on la demande avant tout, puisque sans elle il ne peut
+//                    pas payer (la facture Peppol ne partirait pas)
 //   espace         — le tableau de bord
 export default function EspacePage() {
   const [etat, setEtat] = useState('chargement')
@@ -36,6 +40,9 @@ export default function EspacePage() {
   // 'succes' | 'annule' au retour de Stripe. Lu depuis l'URL, puis effacé :
   // un rechargement de page ne doit pas rejouer le message.
   const [paiement, setPaiement] = useState(null)
+  // Fiche rouverte depuis le tableau de bord (« Modifier »). Null : on demande
+  // simplement la première fiche manquante.
+  const [ficheModifiee, setFicheModifiee] = useState(null)
 
   // Compte déjà chargé, pour ne pas relancer les requêtes à chaque
   // rafraîchissement de jeton émis par supabase-js.
@@ -68,7 +75,7 @@ export default function EspacePage() {
       setIdentite(id)
       setDonnees(data)
       chargePour.current = session.user.id
-      setEtat('espace')
+      setEtat(fichesAFaire(data).length ? 'facturation' : 'espace')
     } catch (e) {
       setErreur(e?.message || 'Erreur inconnue')
       setEtat('erreur')
@@ -178,6 +185,20 @@ export default function EspacePage() {
     }
   }, [])
 
+  // Une fiche enregistrée : on relit, puis on passe à la suivante s'il en
+  // reste (compte groupe), sinon au tableau de bord.
+  async function ficheEnregistree() {
+    try {
+      const data = await chargerEspace()
+      setDonnees(data)
+      setFicheModifiee(null)
+      setEtat(fichesAFaire(data).length ? 'facturation' : 'espace')
+    } catch (e) {
+      setErreur(e?.message || 'Erreur inconnue')
+      setEtat('erreur')
+    }
+  }
+
   if (etat === 'chargement') {
     return (
       <Ecran>
@@ -264,7 +285,30 @@ export default function EspacePage() {
     )
   }
 
-  if (etat === 'espace' && donnees && identite) {
+  if (etat === 'facturation' && donnees && identite) {
+    const fiches = donnees.facturation ?? []
+    const fiche = ficheModifiee
+      ? fiches.find(f => f.id === ficheModifiee)
+      : fichesAFaire(donnees)[0]
+
+    if (fiche) {
+      return (
+        <FicheFacturation
+          key={fiche.id}
+          fiche={fiche}
+          position={fiches.indexOf(fiche) + 1}
+          total={fiches.length}
+          email={email}
+          compteGroupe={!identite.etablissementId}
+          onTermine={ficheEnregistree}
+          onAnnuler={ficheModifiee ? () => { setFicheModifiee(null); setEtat('espace') } : null}
+          onDeconnexion={seDeconnecter}
+        />
+      )
+    }
+  }
+
+  if ((etat === 'espace' || etat === 'facturation') && donnees && identite) {
     return (
       <Espace
         donnees={donnees}
@@ -273,6 +317,7 @@ export default function EspacePage() {
         paiement={paiement}
         onDeconnexion={seDeconnecter}
         onRecharger={recharger}
+        onModifierFacturation={id => { setFicheModifiee(id); setEtat('facturation') }}
       />
     )
   }

@@ -87,7 +87,7 @@ grant select on portail_jours_complets to authenticated;
 -- signifie « dans la journée » : c'est le défaut, et le cas le plus fréquent.
 -- Ne rends jamais ce champ obligatoire, ni ici ni dans l'espace.
 --
--- Créneaux d'une heure, de 8 h à 18 h, UN SEUL client par créneau : la
+-- Créneaux d'une demi-heure, de 8 h à 18 h, UN SEUL client par créneau : la
 -- camionnette ne peut pas être à deux endroits à la fois. Un créneau réservé
 -- est donc fermé pour tout le monde, quel que soit le client.
 --

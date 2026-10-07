@@ -50,7 +50,7 @@ export default function Creneaux({ date, heure, onChange, creneauxPris }) {
           Dans la journée
         </button>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
           {CRENEAUX.map(c => {
             const passe = creneauPasse(date, c)
             const reserve = pris.has(cleCreneau(date, c))

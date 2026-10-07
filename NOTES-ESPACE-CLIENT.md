@@ -189,7 +189,7 @@ livraison passe dans la journée et `heure_livraison` reste à NULL. C'est le ca
 normal, pas une donnée manquante.
 
 Quand le client veut une heure, il choisit dans une liste fermée : créneaux
-d'une heure, de 8 h à 18 h (`lib/creneaux.js`). Pas de champ horaire libre —
+d'une demi-heure, de 8 h à 18 h (`lib/creneaux.js`). Pas de champ horaire libre —
 10h15 et 10h20 passeraient tous les deux le contrôle « créneau libre » alors
 que tu ne peux pas faire les deux.
 

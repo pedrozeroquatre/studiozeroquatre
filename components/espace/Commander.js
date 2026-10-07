@@ -26,7 +26,7 @@ export default function Commander({
   numeroConfirme,        // numéro de la commande qu'on vient de passer, une fois les données relues
   tarif,                 // prix unitaire HTVA, identique à tous les formats — null si la vue n'existe pas
   joursComplets,         // dates où la tournée est pleine (4 livraisons)
-  creneauxPris,          // créneaux d'une heure déjà réservés — null si la vue n'existe pas
+  creneauxPris,          // créneaux d'une demi-heure déjà réservés — null si la vue n'existe pas
   onCommandePassee,
 }) {
   const [quantites, setQuantites] = useState(() => prefill || {})
@@ -34,6 +34,9 @@ export default function Commander({
   // '' = dans la journée. C'est le défaut, et choisir une heure reste facultatif.
   const [heure, setHeure] = useState('')
   const [note, setNote] = useState('')
+  // Publier des CGV ne les rend pas opposables ; les faire accepter, si. La
+  // case n'est jamais pré-cochée, et la route de paiement la revérifie.
+  const [cgv, setCgv] = useState(false)
   // Un compte groupe doit choisir son restaurant — sauf s'il n'en a qu'un,
   // auquel cas le choix est évident et on le pose d'office. Sans ça, aucun
   // sélecteur ne s'affiche et la commande part sans établissement, que la base
@@ -114,6 +117,11 @@ export default function Commander({
       return
     }
 
+    if (!cgv) {
+      setErreur('Acceptez les conditions générales de vente pour continuer.')
+      return
+    }
+
     // La commande et la livraison ne sont écrites qu'après Stripe, par
     // l'Edge Function. Ici on ne fait qu'ouvrir le paiement.
     setEnvoi(true)
@@ -124,6 +132,7 @@ export default function Commander({
         heure: heure || null,
         note,
         etablissement: etablissementImpose || etablissement || null,
+        cgvAcceptees: cgv,
       })
       // On laisse `envoi` à true : la page part sur Stripe, la relâcher
       // ferait clignoter le bouton pendant la redirection.
@@ -313,6 +322,21 @@ export default function Commander({
         />
       </div>
 
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 20, fontSize: 12, color: C.doux, lineHeight: 1.6, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={cgv}
+          onChange={e => setCgv(e.target.checked)}
+          style={{ marginTop: 3, accentColor: C.accent, cursor: 'pointer' }}
+        />
+        <span>
+          J’accepte les{' '}
+          <a href="/cgv" target="_blank" rel="noopener noreferrer" style={{ color: C.texte, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+            conditions générales de vente
+          </a>.
+        </span>
+      </label>
+
       {erreur && <Alerte>{erreur}</Alerte>}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', paddingTop: 16, borderTop: `1px solid ${C.trait2}` }}>
@@ -336,7 +360,7 @@ export default function Commander({
         </div>
         <BoutonPrincipal
           onClick={valider}
-          disabled={totalBoites === 0 || envoi || !souhaitee}
+          disabled={totalBoites === 0 || envoi || !souhaitee || !cgv}
           style={{ width: 'auto', padding: '12px 32px' }}
         >
           {envoi ? 'Redirection…' : `Payer ${formatEuros(totalTtc)}`}
