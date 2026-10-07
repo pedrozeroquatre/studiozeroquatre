@@ -18,10 +18,16 @@
 // Secrets à poser (Edge Functions → Secrets) :
 //   STRIPE_SECRET_KEY        sk_live_… (ou sk_test_… pour valider)
 //   STRIPE_WEBHOOK_SECRET    whsec_… du endpoint qui pointe vers CETTE fonction
+//   FALCO_APP_SECRET, FALCO_API_KEY, FALCO_API_URL — la facturation, voir falco.ts
 // SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont fournis automatiquement.
 
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { facturer, falcoConfigure } from "./falco.ts";
+
+// Fourni par le runtime des Edge Functions : laisse une tâche finir après la
+// réponse.
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 const repond = (corps: unknown, status = 200) =>
   new Response(JSON.stringify(corps), {
@@ -129,5 +135,31 @@ Deno.serve(async (req) => {
   }
 
   console.log("Commande payée enregistrée :", data, "session", session.id);
+
+  // — 4. La facture —
+  // Après la réponse à Stripe, pas avant : quatre ou cinq appels à Falco
+  // prennent plusieurs secondes, et Stripe n'attend pas indéfiniment. Surtout,
+  // un échec de facturation ne doit jamais faire rejouer le paiement : la
+  // commande est enregistrée, c'est ce qui compte. L'échec est noté sur la
+  // commande (`falco_statut = 'erreur'`) et se reprend en renvoyant
+  // l'événement depuis Stripe.
+  if (falcoConfigure()) {
+    const tache = (async () => {
+      try {
+        const { data: lignesStripe } = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+        await facturer({
+          supabase,
+          commandeId: data as string,
+          lignesMeta: Array.isArray(lignes) ? lignes : [],
+          lignesStripe,
+        });
+      } catch (e) {
+        console.error("Falco — préparation échouée :", (e as Error).message);
+      }
+    })();
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(tache);
+    else await tache;
+  }
+
   return repond({ commande: data });
 });

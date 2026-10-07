@@ -183,7 +183,7 @@ administrative pour mentions manquantes et l'incident RGPD du point 1.
       `/api/espace/checkout`, qui pose `cgv_version` et `cgv_acceptees_le` dans
       les métadonnées Stripe. Pas encore en base de l'OS (il faudrait une
       colonne et l'Edge Function)
-- [ ] **Confirmer l'adresse du siège** (marquée « à confirmer » par Pedro) —
+- [x] **Confirmer l'adresse du siège** — identique à celle que rend VIES le 07/10/2026 —
       [lib/societe.js](lib/societe.js)
 - [ ] **Faire relire les CGV** : délai de réclamation (8 jours), paiement sur
       devis à 30 jours, limitation de responsabilité, droit de montrer les
@@ -220,8 +220,37 @@ son numéro de TVA à sa connexion, VIES remplit la société et l'adresse.
 - [x] `npm run verifier` depuis le dépôt de l'OS (la vue y est ajoutée) — tout vert
 - [ ] Tester avec un compte client : la fiche s'affiche avant le tableau de
       bord, « Modifier » la rouvre depuis la section Facturation
-- [ ] Ensuite seulement : brancher Falco dans `enregistrer-commande-payee`
-      (clé API dans les secrets Supabase, jamais sur Vercel)
+- [x] Ensuite seulement : brancher Falco dans `enregistrer-commande-payee`
+      — codé le 07/10/2026, voir le point 9
+
+## 9. Facturation Falco 🟡 codée le 07/10/2026 — à tester en sandbox
+
+Chaque paiement de l'espace devient une facture Falco, approuvée puis envoyée
+par Peppol (par e-mail si le restaurant n'y est pas). Code :
+`supabase/functions/enregistrer-commande-payee/falco.ts`.
+
+- [x] dev.falco-app.be → créer une application, scopes `customers:read`,
+      `customers:write`, `invoices:read`, `invoices:write`, `invoices:send`,
+      `peppol:participants:read`
+- [ ] Secrets Supabase (Edge Functions → Secrets) : `FALCO_APP_SECRET`
+      (`as_test_…`) et `FALCO_API_KEY` (`sk_test_…`). Sans `FALCO_API_URL`,
+      la fonction parle au **sandbox**
+- [ ] Exécuter `supabase/facturation-falco.sql`
+- [ ] Déployer depuis le dépôt de l'OS :
+      `supabase functions deploy enregistrer-commande-payee --no-verify-jwt`
+- [ ] Une commande réelle avec le compte test, puis la rembourser dans Stripe.
+      Vérifier `falco_statut = 'ok'` et `falco_numero` sur la commande
+- [ ] Avant la production : retirer le n° de TVA du studio de la fiche du compte
+      test (ou ne plus commander avec) — sinon chaque test envoie une vraie
+      facture Peppol du studio à lui-même
+- [ ] Passage en production : application rendue **Public**, clé `sk_live_…`
+      générée dans Falco (bureau → initiales → Accès API), puis
+      `FALCO_APP_SECRET=as_live_…`, `FALCO_API_KEY=sk_live_…`,
+      `FALCO_API_URL=https://api.falco-app.be/v1`
+
+Limites connues : un remboursement Stripe ne crée pas de note de crédit (à
+faire dans Falco) ; les échecs ne sont visibles qu'en SQL (requête dans
+`facturation-falco.sql`) tant que l'OS ne les affiche pas.
 
 Tant que le SQL n'est pas passé, l'espace se comporte exactement comme avant.
 Une fois passé, **plus aucun paiement sans fiche complète** — les clients
