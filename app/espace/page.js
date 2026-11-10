@@ -21,7 +21,7 @@ import { Ecran, CarteAuth, C } from '@/components/espace/ui'
 // États possibles :
 //   chargement     — on regarde s'il y a une session
 //   non-configure  — les variables Supabase manquent
-//   lien-expire    — lien d'invitation mort (24 h) ou déjà utilisé
+//   lien-expire    — lien d'invitation mort (expiré ou déjà utilisé)
 //   mot-de-passe   — arrivée par mail : le client choisit son mot de passe
 //   connexion      — email + mot de passe
 //   sans-acces     — connecté, mais ce compte n'est pas un compte client

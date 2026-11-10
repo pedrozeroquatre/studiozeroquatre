@@ -80,7 +80,7 @@ export default function Connexion({ messageInitial }) {
         <CarteAuth titre="Vérifiez vos mails">
           <div style={{ fontSize: 12, color: C.doux, lineHeight: 1.8 }}>
             Si un compte existe pour cette adresse, un lien de réinitialisation vient
-            d’être envoyé. Il est valable 24 heures.
+            d’être envoyé.
             <br />
             <br />
             Pensez à regarder dans les indésirables.

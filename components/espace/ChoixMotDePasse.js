@@ -50,7 +50,7 @@ export default function ChoixMotDePasse({ type, email, onTermine }) {
       const session = /session/i.test(error.message)
       setErreur(
         session
-          ? "Ce lien n'est plus valable. Demandez-en un nouveau au studio."
+          ? "Ce lien n'est plus valable. Demandez-en un nouveau depuis « Mot de passe oublié »."
           : error.message
       )
       setEnvoi(false)
