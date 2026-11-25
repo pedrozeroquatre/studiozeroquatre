@@ -6,6 +6,7 @@ import {
 } from '@/lib/espace-data'
 import { TVA_TAUX, tvaSur, avecTva, prixUnitaireTtc, somme } from '@/lib/tva'
 import { cleCreneau, estCreneau } from '@/lib/creneaux'
+import { estSac, prixDuFormat, unite } from '@/lib/formats'
 import Calendrier from './Calendrier'
 import Creneaux from './Creneaux'
 import { C, S, MONO, SYNE, focus, Label, Alerte, BoutonPrincipal, Pastille } from './ui'
@@ -24,7 +25,7 @@ export default function Commander({
   etablissementImpose,   // id du restaurant quand le compte y est rattaché ; null pour un compte groupe
   prefill,               // { reference: quantite } — la dernière commande
   numeroConfirme,        // numéro de la commande qu'on vient de passer, une fois les données relues
-  tarif,                 // prix unitaire HTVA, identique à tous les formats — null si la vue n'existe pas
+  tarif,                 // { boite, sac } : prix unitaires HTVA, null quand non enregistré (cf. lib/formats.js)
   joursComplets,         // dates où la tournée est pleine (4 livraisons)
   creneauxPris,          // créneaux d'une demi-heure déjà réservés — null si la vue n'existe pas
   onCommandePassee,
@@ -57,33 +58,41 @@ export default function Commander({
   // que de laisser le client buter sur le bouton.
   const sansEtablissement = !etablissementImpose && etablissements.length === 0
 
-  const lignes = references
+  // Un format ne se commande que si son prix est enregistré : une ligne de
+  // sacs sans prix par sac n'est pas proposée — la route de paiement la
+  // refuserait de toute façon.
+  const prixDe = ref => prixDuFormat(ref, tarif || {})
+  const commandables = references.filter(ref => prixDe(ref) !== null)
+  const avecBoites = commandables.some(ref => !estSac(ref))
+  const avecSacs = commandables.some(estSac)
+
+  const lignes = commandables
     .map(ref => ({ reference: ref, quantite: parseInt(quantites[ref] || 0, 10) }))
     .filter(l => Number.isFinite(l.quantite) && l.quantite > 0)
 
-  const totalBoites = lignes.reduce((s, l) => s + l.quantite, 0)
+  const totalBoites = lignes.filter(l => !estSac(l.reference)).reduce((s, l) => s + l.quantite, 0)
+  const totalSacs = lignes.filter(l => estSac(l.reference)).reduce((s, l) => s + l.quantite, 0)
+  const totalQuantite = totalBoites + totalSacs
 
-  // Un seul prix pour tous les formats : chaque ligne vaut sa quantité fois ce
-  // prix. 300 × 33×33 et 500 × 30×30 au même tarif, c'est 800 boîtes — la
-  // taille ne change rien au calcul.
+  // Un prix pour tous les formats de boîtes, un autre pour les sacs : chaque
+  // ligne vaut sa quantité fois le prix de SON format. 300 × 33×33 et 500 ×
+  // 30×30 au même tarif, c'est 800 boîtes — la taille ne change rien.
   //
   // On chiffre ligne par ligne, et pas en une fois sur le total des boîtes :
   // c'est ainsi que Stripe facture (une ligne par format) et qu'il calcule la
   // TVA. Arrondir le total d'un coup afficherait parfois un centime de moins
   // que ce qui est débité.
-  const chiffrees = tarif
-    ? lignes.map(l => ({ ...l, htva: montant(l.quantite, tarif) }))
-    : []
-  const totalHtva = tarif ? somme(chiffrees.map(l => l.htva)) : null
-  const totalTva = tarif ? somme(chiffrees.map(l => tvaSur(l.htva))) : null
-  const totalTtc = tarif ? somme([totalHtva, totalTva]) : null
+  const chiffrees = lignes.map(l => ({ ...l, htva: montant(l.quantite, prixDe(l.reference)) }))
+  const totalHtva = somme(chiffrees.map(l => l.htva))
+  const totalTva = somme(chiffrees.map(l => tvaSur(l.htva)))
+  const totalTtc = somme([totalHtva, totalTva])
 
   // Sans tarif enregistré, on ne peut rien facturer — et on ne se rabat plus
   // sur une demande sans paiement : elle créait une commande qui n'apparaissait
   // dans AUCUN écran du studio, donc que personne ne traitait. Mieux vaut dire
   // au client que quelque chose manque de notre côté (écran de garde plus bas)
   // que d'accepter une commande qui ne sera jamais vue.
-  const sansTarif = !tarif
+  const sansTarif = commandables.length === 0
 
   function setLigne(ref, n) {
     setQuantites(q => ({ ...q, [ref]: String(n) }))
@@ -211,22 +220,25 @@ export default function Commander({
     <div id="commander" style={S.carte}>
       <Label>Vos formats</Label>
 
-      {tarif && (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 16, borderBottom: `1px solid ${C.trait}` }}>
-          <span style={{ fontFamily: SYNE, fontSize: 20, fontWeight: 800, color: C.vif }}>
-            {formatPrixUnitaire(prixUnitaireTtc(tarif))}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 16, borderBottom: `1px solid ${C.trait}` }}>
+        {[avecBoites && ['boîte', tarif.boite], avecSacs && ['sac', tarif.sac]].filter(Boolean).map(([nom, prix], i) => (
+          <span key={nom} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10 }}>
+            {i > 0 && <span style={{ color: C.pale }}>·</span>}
+            <span style={{ fontFamily: SYNE, fontSize: 20, fontWeight: 800, color: C.vif }}>
+              {formatPrixUnitaire(prixUnitaireTtc(prix))}
+            </span>
+            <span style={{ fontSize: 12, color: C.doux }}>
+              par {nom}{i === 0 ? ', TVA comprise' : ''}
+            </span>
           </span>
-          <span style={{ fontSize: 12, color: C.doux }}>
-            par boîte, TVA comprise
-          </span>
-        </div>
-      )}
+        ))}
+      </div>
 
       <div style={{ overflowX: 'auto', marginBottom: 24 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Format', 'Quantité (boîtes)', 'Soit', ...(tarif ? ['Sous-total TTC'] : [])].map((h, i) => (
+              {['Format', avecSacs ? 'Quantité' : 'Quantité (boîtes)', 'Soit', 'Sous-total TTC'].map((h, i) => (
                 <th key={h} style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: C.pale, textAlign: i >= 2 ? 'right' : 'left', padding: '8px 12px', borderBottom: `1px solid ${C.trait2}`, fontWeight: 400, whiteSpace: 'nowrap' }}>
                   {h}
                 </th>
@@ -234,8 +246,9 @@ export default function Commander({
             </tr>
           </thead>
           <tbody>
-            {references.map(ref => {
+            {commandables.map(ref => {
               const qte = parseInt(quantites[ref] || 0, 10) || 0
+              const sac = estSac(ref)
               return (
                 <tr key={ref} style={{ borderBottom: `1px solid ${C.trait}` }}>
                   <td style={{ padding: 12, verticalAlign: 'middle' }}><Pastille>{ref}</Pastille></td>
@@ -247,7 +260,7 @@ export default function Commander({
                       value={quantites[ref] ?? ''}
                       onChange={e => setQuantites(q => ({ ...q, [ref]: e.target.value }))}
                       placeholder="0"
-                      aria-label={`Quantité de boîtes ${ref}`}
+                      aria-label={sac ? 'Quantité de sacs' : `Quantité de boîtes ${ref}`}
                       style={{ background: C.champ, border: `1px solid ${C.trait2}`, borderRadius: 3, color: C.texte, fontFamily: MONO, fontSize: 13, padding: '7px 10px', width: 100, textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
                       {...focus}
                     />
@@ -266,13 +279,13 @@ export default function Commander({
                     </div>
                   </td>
                   <td style={{ padding: 12, fontSize: 12, textAlign: 'right', verticalAlign: 'middle', color: qte > 0 ? C.gris : C.pale, whiteSpace: 'nowrap' }}>
-                    {qte > 0 ? `${formatNombre(Math.round(qte / BOITES_PAR_PAQUET))} paquets` : '—'}
+                    {qte <= 0 ? '—'
+                      : sac ? `${formatNombre(qte)} ${unite(ref, qte)}`
+                      : `${formatNombre(Math.round(qte / BOITES_PAR_PAQUET))} paquets`}
                   </td>
-                  {tarif && (
-                    <td style={{ padding: 12, fontSize: 13, textAlign: 'right', verticalAlign: 'middle', color: qte > 0 ? C.vif : C.pale, whiteSpace: 'nowrap' }}>
-                      {qte > 0 ? formatEuros(avecTva(montant(qte, tarif))) : '—'}
-                    </td>
-                  )}
+                  <td style={{ padding: 12, fontSize: 13, textAlign: 'right', verticalAlign: 'middle', color: qte > 0 ? C.vif : C.pale, whiteSpace: 'nowrap' }}>
+                    {qte > 0 ? formatEuros(avecTva(montant(qte, prixDe(ref)))) : '—'}
+                  </td>
                 </tr>
               )
             })}
@@ -341,10 +354,15 @@ export default function Commander({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', paddingTop: 16, borderTop: `1px solid ${C.trait2}` }}>
         <div style={{ fontSize: 12, color: C.doux }}>
-          {totalBoites === 0 ? 'Aucune quantité saisie' : (
+          {totalQuantite === 0 ? 'Aucune quantité saisie' : (
             <>
-              <span style={{ color: C.vif }}>{formatNombre(totalBoites)} boîtes</span>
-              {totalTtc !== null && (
+              <span style={{ color: C.vif }}>
+                {[
+                  totalBoites > 0 && `${formatNombre(totalBoites)} ${unite('', totalBoites)}`,
+                  totalSacs > 0 && `${formatNombre(totalSacs)} ${unite('Sac', totalSacs)}`,
+                ].filter(Boolean).join(' · ')}
+              </span>
+              {(
                 <>
                   <div style={{ fontFamily: SYNE, fontSize: 24, fontWeight: 800, color: C.vif, marginTop: 4 }}>
                     {formatEuros(totalTtc)}
@@ -360,7 +378,7 @@ export default function Commander({
         </div>
         <BoutonPrincipal
           onClick={valider}
-          disabled={totalBoites === 0 || envoi || !souhaitee || !cgv}
+          disabled={totalQuantite === 0 || envoi || !souhaitee || !cgv}
           style={{ width: 'auto', padding: '12px 32px' }}
         >
           {envoi ? 'Redirection…' : `Payer ${formatEuros(totalTtc)}`}

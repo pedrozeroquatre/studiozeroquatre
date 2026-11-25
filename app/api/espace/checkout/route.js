@@ -4,6 +4,7 @@ import { getStripe } from '@/lib/stripe'
 import { TVA_TAUX } from '@/lib/tva'
 import { creneauPasse, estCreneau, normaliserHeure } from '@/lib/creneaux'
 import { CGV_VERSION } from '@/lib/societe'
+import { prixDuFormat, unite } from '@/lib/formats'
 
 // Création de la session de paiement de l'espace client.
 //
@@ -218,13 +219,16 @@ export async function POST(request) {
   }
 
   // — Le tarif, lu en base —
-  const { data: tarifs, error: eTarif } = await sb
-    .from('portail_mon_tarif')
-    .select('prix_unitaire_htva')
-    .limit(1)
-
-  const prix = Number(tarifs?.[0]?.prix_unitaire_htva)
-  if (eTarif || !Number.isFinite(prix) || prix <= 0) {
+  // Un prix par boîte (tous formats de boîtes) et un prix par sac
+  // (lib/formats.js). `prix_sac_htva` est récente : sans elle, on relit le
+  // seul prix par boîte, et une ligne de sacs sera refusée plus bas.
+  let lecture = await sb.from('portail_mon_tarif').select('prix_unitaire_htva, prix_sac_htva').limit(1)
+  if (lecture.error) lecture = await sb.from('portail_mon_tarif').select('prix_unitaire_htva').limit(1)
+  const tarif = {
+    boite: lecture.data?.[0]?.prix_unitaire_htva,
+    sac: lecture.data?.[0]?.prix_sac_htva,
+  }
+  if (lecture.error || (prixDuFormat('', tarif) === null && prixDuFormat('Sac', tarif) === null)) {
     return NextResponse.json(
       { error: 'Votre tarif n’est pas encore enregistré. Contactez le studio.' },
       { status: 409 },
@@ -246,6 +250,16 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Trop de lignes dans une même commande.' }, { status: 400 })
   }
 
+  // Chaque ligne au prix de SON format. Jamais de repli : un sac sans prix
+  // par sac n'est pas facturé au prix d'une boîte, la commande est refusée.
+  const sansPrix = propres.find(l => prixDuFormat(l.reference, tarif) === null)
+  if (sansPrix) {
+    return NextResponse.json(
+      { error: `Le prix de « ${sansPrix.reference} » n’est pas encore enregistré. Contactez le studio.` },
+      { status: 409 },
+    )
+  }
+
   // Le prix unitaire est en numeric(10,4) : à 0,2550 € la boîte, facturer
   // ligne par ligne au centime perdrait des fractions. On facture donc chaque
   // format en UNE ligne, d'un montant = arrondi(quantité × prix).
@@ -253,9 +267,9 @@ export async function POST(request) {
     quantity: 1,
     price_data: {
       currency: 'eur',
-      unit_amount: Math.round(l.quantite * prix * 100),
+      unit_amount: Math.round(l.quantite * prixDuFormat(l.reference, tarif) * 100),
       product_data: {
-        name: `${l.reference} — ${l.quantite.toLocaleString('fr-BE')} boîtes`,
+        name: `${l.reference} — ${l.quantite.toLocaleString('fr-BE')} ${unite(l.reference, l.quantite)}`,
       },
     },
   }))
