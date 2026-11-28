@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabasePourJeton } from '@/lib/supabase-jeton'
 import { normaliserTva, decouperAdresse } from '@/lib/numero-tva'
+import { interrogerVies } from '@/lib/verification-tva'
 
 // Consultation VIES pour la fiche de facturation de l'espace client.
 //
@@ -13,33 +14,21 @@ import { normaliserTva, decouperAdresse } from '@/lib/numero-tva'
 // (pas de CORS). Et la route exige une session client — sans ça, elle serait
 // un relais VIES ouvert à n'importe qui sur Internet.
 
-const VIES = 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/BE/vat/'
+// VIES ne bloque jamais le client. Ce qu'il ne confirme pas ici (numéro inconnu,
+// typiquement une société en franchise de TVA, ou service en panne), le client
+// le tape lui-même. Le statut de vérification ne se pose pas ici : la base le
+// met à « a_verifier » dès que le numéro est enregistré, et une tâche côté
+// serveur revérifie ensuite (Studio-ZeroQuatre-OS, supabase-verification-tva.sql).
+//
+// Statuts rendus au navigateur :
+//   trouve       VIES confirme et donne nom + adresse → le client confirme
+//   incomplet    VIES confirme mais masque nom ou adresse → saisie manuelle
+//   inconnu      VIES ne connaît pas le numéro → saisie manuelle, sans blocage
+//   invalide     le numéro est mal formé → le client corrige
+//   indisponible VIES ne répond pas → réessayer, ou saisie manuelle
 
-// VIES dépend des administrations nationales et tombe parfois. Ces réponses-là
-// ne disent rien du numéro. La Belgique, surtout, répond souvent
-// MS_MAX_CONCURRENT_REQ (trop d'appels simultanés, tous pays confondus) puis
-// redevient disponible quelques secondes plus tard : on réessaie avant de
-// renvoyer le client vers la saisie manuelle.
-const INDISPONIBLE = /UNAVAILABLE|TIMEOUT|MAX_CONCURRENT|SERVICE/i
-const ESSAIS = 3
-
-// Les essais peuvent prendre une quinzaine de secondes au pire.
+// Les essais peuvent prendre une vingtaine de secondes au pire.
 export const maxDuration = 30
-
-async function interrogerVies(chiffres) {
-  for (let essai = 1; ; essai++) {
-    const res = await fetch(VIES + chiffres, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(6000),
-      cache: 'no-store',
-    })
-    const reponse = await res.json()
-    if (reponse?.isValid || !INDISPONIBLE.test(reponse?.userError || '') || essai >= ESSAIS) {
-      return reponse
-    }
-    await new Promise(r => setTimeout(r, 1500 * essai))
-  }
-}
 
 export async function POST(request) {
   const { jeton, tva } = await request.json().catch(() => ({}))
@@ -62,17 +51,12 @@ export async function POST(request) {
     return NextResponse.json({ statut: 'invalide' })
   }
 
-  let reponse
-  try {
-    reponse = await interrogerVies(chiffres)
-  } catch (err) {
-    console.error('[espace/tva] VIES', err)
-    return NextResponse.json({ statut: 'indisponible', tva: chiffres })
-  }
+  const { cas, reponse, erreur } = await interrogerVies(chiffres)
 
-  if (!reponse?.isValid) {
-    const indisponible = INDISPONIBLE.test(reponse?.userError || '')
-    return NextResponse.json({ statut: indisponible ? 'indisponible' : 'inconnu', tva: chiffres })
+  if (cas !== 'valide') {
+    if (erreur) console.error('[espace/tva] VIES', erreur)
+    const statut = { non_assujetti: 'inconnu', invalide: 'invalide' }[cas] || 'indisponible'
+    return NextResponse.json({ statut, tva: chiffres })
   }
 
   // VIES masque parfois le nom ou l'adresse (« --- »). Le numéro est bon, mais

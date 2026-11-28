@@ -70,7 +70,13 @@ asks every restaurant without a complete `portail_ma_facturation` row for its
 VAT number. `/api/espace/tva` looks it up in VIES (server-side — VIES has no
 CORS, and the route requires a client session so it is not an open relay) and
 the client confirms the company name and registered address; the invoice email
-defaults to the login email. `/api/espace/checkout` refuses payment while the
+defaults to the login email. VIES never blocks: an unknown number (VAT-exempt
+"franchise" companies) or an unavailable VIES falls back to manual entry. The
+DB marks every new/changed number `a_verifier` and the OS repo's `verifier-tva`
+Edge Function re-checks VIES hourly; numbers VIES rejects surface in the OS for
+Pedro to check at the BCE (`supabase-verification-tva.sql` in the OS repo).
+VIES logic lives in `lib/verification-tva.js`, duplicated in the OS repo's
+`supabase/functions/verifier-tva/vies.mjs` — keep them in sync. `npm test`. `/api/espace/checkout` refuses payment while the
 row is incomplete. SQL in `supabase/facturation.sql`. Both checks degrade to
 "allow" while that view does not exist yet. This feeds the planned Falco
 (Peppol) invoicing step in the `enregistrer-commande-payee` Edge Function.

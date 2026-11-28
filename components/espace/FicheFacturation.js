@@ -11,9 +11,15 @@ import { Ecran, CarteAuth, ChampTexte, Alerte, BoutonPrincipal, BoutonFantome, C
 // de son compte — beaucoup préféreront celle de leur comptable, d'où le lien
 // « une autre adresse ».
 //
-// Saisie manuelle seulement quand VIES ne répond pas ou masque l'adresse : une
-// adresse officielle n'a pas à être retouchée, et c'est elle que la facture
-// Peppol doit porter.
+// VIES ne bloque jamais. Saisie manuelle quand VIES ne connaît pas le numéro
+// (société en franchise de TVA, typiquement), masque l'adresse, ou ne répond
+// pas — dans ce dernier cas le client peut d'abord réessayer. Quand VIES a
+// tout, pas de saisie : une adresse officielle n'a pas à être retouchée, et
+// c'est elle que la facture Peppol doit porter.
+//
+// Le studio revérifie chaque numéro après coup, côté serveur : ce qui n'a pas
+// pu être confirmé ici est signalé à Pedro dans l'OS, sans rien demander au
+// client.
 //
 // Étapes : 'numero' → 'confirmation' (VIES a tout) ou 'manuel' → enregistré.
 export default function FicheFacturation({ fiche, position, total, email, compteGroupe, onTermine, onAnnuler, onDeconnexion }) {
@@ -23,13 +29,32 @@ export default function FicheFacturation({ fiche, position, total, email, compte
   const [autreEmail, setAutreEmail] = useState(Boolean(fiche.email && fiche.email !== email))
   const [emailFacturation, setEmailFacturation] = useState(fiche.email && fiche.email !== email ? fiche.email : '')
   const [avertissement, setAvertissement] = useState('')
+  const [indisponible, setIndisponible] = useState(false)
   const [erreur, setErreur] = useState('')
   const [envoi, setEnvoi] = useState(false)
 
   const majInfo = (cle, valeur) => setInfos(i => ({ ...i, [cle]: valeur }))
 
+  // Ce que VIES a rendu, sinon ce que le studio avait déjà noté.
+  const preRemplir = (r = {}) => setInfos({
+    societe: r.societe || fiche.societe || '',
+    rue: r.rue || fiche.rue || '',
+    cp: r.cp || fiche.cp || '',
+    ville: r.ville || fiche.ville || '',
+  })
+
+  function saisieManuelle(message) {
+    const chiffres = normaliserTva(tva)
+    if (chiffres) setTva(formaterTva(chiffres))
+    preRemplir()
+    setIndisponible(false)
+    setErreur('')
+    setAvertissement(message)
+    setEtape('manuel')
+  }
+
   async function verifier(e) {
-    e.preventDefault()
+    e?.preventDefault()
     if (envoi) return
     if (!normaliserTva(tva)) {
       setErreur('Ce numéro de TVA n’est pas valide. Il ressemble à BE 0123.456.789.')
@@ -37,29 +62,25 @@ export default function FicheFacturation({ fiche, position, total, email, compte
     }
 
     setErreur('')
+    setIndisponible(false)
     setEnvoi(true)
     try {
       const r = await consulterTva(tva)
       if (r.statut === 'invalide') {
         setErreur('Ce numéro de TVA n’est pas valide. Il ressemble à BE 0123.456.789.')
-      } else if (r.statut === 'inconnu') {
-        setErreur('Ce numéro n’est pas actif à la TVA selon le registre européen (VIES). Vérifiez-le, ou écrivez-nous si vous pensez que c’est une erreur.')
+      } else if (r.statut === 'indisponible') {
+        // On reste sur le numéro : le client choisit entre réessayer et remplir.
+        setIndisponible(true)
       } else {
         setTva(formaterTva(r.tva))
-        // Ce que VIES a rendu, sinon ce que le studio avait déjà noté.
-        setInfos({
-          societe: r.societe || fiche.societe || '',
-          rue: r.rue || fiche.rue || '',
-          cp: r.cp || fiche.cp || '',
-          ville: r.ville || fiche.ville || '',
-        })
+        preRemplir(r)
         if (r.statut === 'trouve') {
           setAvertissement('')
           setEtape('confirmation')
         } else {
           setAvertissement(
-            r.statut === 'indisponible'
-              ? 'Le registre européen de TVA ne répond pas pour le moment. Complétez vos informations à la main.'
+            r.statut === 'inconnu'
+              ? 'Votre numéro n’apparaît pas dans le registre européen de TVA — c’est normal pour une société en franchise de TVA. Complétez vos informations, nous vérifierons de notre côté.'
               : 'Votre numéro est bien actif, mais le registre ne donne pas votre adresse. Complétez-la à la main.'
           )
           setEtape('manuel')
@@ -129,15 +150,29 @@ export default function FicheFacturation({ fiche, position, total, email, compte
             <ChampTexte
               label="Numéro de TVA"
               value={tva}
-              onChange={e => setTva(e.target.value)}
+              onChange={e => { setTva(e.target.value); setIndisponible(false) }}
               placeholder="BE 0123.456.789"
               autoComplete="off"
               autoFocus
             />
             {erreur && <Alerte>{erreur}</Alerte>}
+            {indisponible && (
+              <Alerte ton="info">
+                Le service européen de vérification de TVA est temporairement indisponible. Réessayez dans un instant, ou remplissez vos informations à la main.
+              </Alerte>
+            )}
             <BoutonPrincipal type="submit" disabled={envoi || !tva.trim()} style={{ marginTop: 8 }}>
-              {envoi ? 'Vérification…' : 'Vérifier'}
+              {envoi ? 'Vérification…' : indisponible ? 'Réessayer' : 'Vérifier'}
             </BoutonPrincipal>
+            {indisponible && !envoi && (
+              <button
+                type="button"
+                onClick={() => saisieManuelle('Le registre européen de TVA ne répond pas : complétez vos informations, nous vérifierons de notre côté.')}
+                style={{ width: '100%', marginTop: 12, background: 'none', border: 'none', color: C.gris, fontFamily: 'inherit', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                Remplir manuellement
+              </button>
+            )}
           </form>
         )}
 
